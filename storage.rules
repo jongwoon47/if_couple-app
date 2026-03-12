@@ -1,0 +1,9 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    // 채팅 이미지: 로그인한 사용자만 업로드/다운로드
+    match /couples/{coupleId}/images/{fileName} {
+      allow read, write: if request.auth != null;
+    }
+  }
+}

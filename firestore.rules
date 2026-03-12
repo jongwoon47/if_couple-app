@@ -1,0 +1,116 @@
+﻿rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isMe(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function myUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function userBelongsToCouple(coupleId) {
+      return isSignedIn() &&
+        myUserDoc().data.coupleId != null &&
+        myUserDoc().data.coupleId == coupleId;
+    }
+
+    function isCoupleLinkUpdate() {
+      return resource.data.coupleId == null &&
+        request.resource.data.coupleId is string &&
+        request.resource.data.coupleId.size() > 0 &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'coupleId',
+          'hasSeenConnectionComplete',
+          'coupleJoinedAt'
+        ]) &&
+        (
+          !request.resource.data.diff(resource.data).changedKeys().hasAny(['hasSeenConnectionComplete']) ||
+          request.resource.data.hasSeenConnectionComplete == false
+        ) &&
+        (
+          !request.resource.data.diff(resource.data).changedKeys().hasAny(['coupleJoinedAt']) ||
+          request.resource.data.coupleJoinedAt is timestamp
+        );
+    }
+
+    function isCoupleUnlinkUpdate() {
+      return isSignedIn() &&
+        resource.data.coupleId is string &&
+        resource.data.coupleId.size() > 0 &&
+        request.resource.data.coupleId == null &&
+        myUserDoc().data.coupleId == resource.data.coupleId &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'coupleId',
+          'hasSeenConnectionComplete',
+          'coupleJoinedAt'
+        ]) &&
+        request.resource.data.hasSeenConnectionComplete == true &&
+        request.resource.data.coupleJoinedAt == null;
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isMe(userId);
+      allow update: if isMe(userId) ||
+        (isSignedIn() && isCoupleLinkUpdate()) ||
+        (isSignedIn() && isCoupleUnlinkUpdate());
+      allow delete: if false;
+    }
+
+    match /inviteCodes/{code} {
+      allow create: if isSignedIn() &&
+        request.resource.data.code == code &&
+        request.resource.data.createdBy == request.auth.uid &&
+        request.resource.data.createdAt is timestamp &&
+        request.resource.data.expiresAt is timestamp &&
+        request.resource.data.used == false;
+
+      allow read: if isSignedIn();
+
+      allow update: if isSignedIn() &&
+        request.resource.data.code == resource.data.code &&
+        request.resource.data.createdBy == resource.data.createdBy &&
+        request.resource.data.createdAt == resource.data.createdAt &&
+        request.resource.data.expiresAt == resource.data.expiresAt &&
+        resource.data.used == false &&
+        request.resource.data.used == true &&
+        request.resource.data.diff(resource.data).changedKeys().hasOnly([
+          'used',
+          'usedAt',
+          'usedBy',
+          'invalidatedAt'
+        ]);
+
+      allow delete: if false;
+    }
+
+    match /couples/{coupleId} {
+      allow create: if isSignedIn() &&
+        request.resource.data.users is list &&
+        request.resource.data.users.size() == 2 &&
+        request.resource.data.users.hasAny([request.auth.uid]) &&
+        request.resource.data.startDate is timestamp;
+
+      allow read, update, delete: if userBelongsToCouple(coupleId);
+
+      match /messages/{messageId} {
+        allow read: if userBelongsToCouple(coupleId);
+        allow create: if userBelongsToCouple(coupleId) &&
+          request.resource.data.senderId == request.auth.uid &&
+          request.resource.data.coupleId == coupleId;
+        allow update, delete: if false;
+      }
+
+      match /events/{eventId} {
+        allow read, delete: if userBelongsToCouple(coupleId);
+        allow create, update: if userBelongsToCouple(coupleId) &&
+          request.resource.data.coupleId == coupleId;
+      }
+    }
+  }
+}
