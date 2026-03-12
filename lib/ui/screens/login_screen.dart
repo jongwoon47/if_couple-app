@@ -220,7 +220,7 @@ class _LoginScreenState extends State<LoginScreen> {
 }
 
 const String _kakaoAssetPath = 'assets/images/kakao_login_medium_wide.png';
-const String _lineLogoPath = 'assests/images/line_logo.png';
+const String _lineLogoPath = 'assets/images/line_logo.png';
 
 class _KakaoLoginImageButton extends StatelessWidget {
   const _KakaoLoginImageButton({required this.loading, required this.onPressed});

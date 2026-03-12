@@ -19,24 +19,32 @@ class AuthApiService {
     return Uri.parse('$base$path');
   }
 
+  /// 카카오: Firebase Functions URL (authKakaoStart). 그 외: /auth/{provider}/start
   static Uri buildWebOAuthStartUri({
     required LoginProvider provider,
     required Uri redirectUri,
   }) {
-    return _baseUri('/auth/${provider.name}/start').replace(
+    final path = provider == LoginProvider.kakao
+        ? '/authKakaoStart'
+        : '/auth/${provider.name}/start';
+    return _baseUri(path).replace(
       queryParameters: {
         'redirect_uri': redirectUri.toString(),
       },
     );
   }
 
+  /// 카카오: Firebase Functions URL (authKakaoExchange). 그 외: /auth/{provider}/exchange
   static Future<String> exchangeAuthCodeForFirebaseCustomToken({
     required LoginProvider provider,
     required String authCode,
     required Uri redirectUri,
     String? state,
   }) async {
-    final uri = _baseUri('/auth/${provider.name}/exchange');
+    final path = provider == LoginProvider.kakao
+        ? '/authKakaoExchange'
+        : '/auth/${provider.name}/exchange';
+    final uri = _baseUri(path);
     final body = <String, dynamic>{
       'code': authCode,
       'redirectUri': redirectUri.toString(),

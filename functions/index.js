@@ -1,10 +1,20 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { defineSecret } from "firebase-functions/params";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import * as admin from "firebase-admin";
+import admin from "firebase-admin";
 
-if (!admin.apps.length) admin.initializeApp();
+// Firebase Admin 초기화 (ESM + Node 20)
+if (admin.apps.length === 0) {
+  admin.initializeApp();
+}
 const db = admin.firestore();
+
+// 카카오 로그인 (Secret Manager: KAKAO_REST_API_KEY만 사용)
+const kakaoRestApiKey = defineSecret("KAKAO_REST_API_KEY");
+
+const KAKAO_AUTH_URL = "https://kauth.kakao.com/oauth/authorize";
+const KAKAO_TOKEN_URL = "https://kauth.kakao.com/oauth/token";
+const KAKAO_USER_ME_URL = "https://kapi.kakao.com/v2/user/me";
 
 // 보호: 메시지 길이 / 분당 요청 / 일일 요청
 const MAX_CHARS = 500;
@@ -169,3 +179,240 @@ export const translate = onRequest(
     }
   }
 );
+
+// ----- 카카오 로그인 -----
+const authCors = {
+  cors: true,
+  region: "asia-northeast3",
+  // KAKAO_REST_API_KEY는 필수, KAKAO_CLIENT_SECRET은 선택
+  secrets: [kakaoRestApiKey],
+};
+
+/**
+ * 카카오 로그인 시작: 앱에서 이 URL로 이동하면 카카오 인증 페이지로 리다이렉트합니다.
+ * GET ?redirect_uri=https://앱도메인 (인증 후 돌아갈 앱 URL)
+ */
+export const authKakaoStart = onRequest(authCors, async (req, res) => {
+  if (req.method === "OPTIONS") {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "GET") {
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
+  const redirectUri = (req.query.redirect_uri || "").toString().trim();
+  if (!redirectUri) {
+    res.status(400).send("redirect_uri is required");
+    return;
+  }
+
+  const clientId = kakaoRestApiKey.value();
+  if (!clientId || !clientId.trim()) {
+    res.status(500).send("KAKAO_REST_API_KEY is not set in Secret Manager");
+    return;
+  }
+
+  // state에 앱 redirect_uri를 넣어서 콜백에서 그쪽으로 토큰 전달
+  const state = encodeURIComponent(redirectUri);
+  const callbackUrl = getAuthKakaoCallbackUrl(req);
+  const params = new URLSearchParams({
+    response_type: "code",
+    client_id: clientId,
+    redirect_uri: callbackUrl,
+    state,
+  });
+  const url = `${KAKAO_AUTH_URL}?${params.toString()}`;
+  res.redirect(302, url);
+});
+
+/**
+ * 카카오가 인증 후 리다이렉트하는 콜백.
+ * code를 카카오 토큰으로 교환 → Firebase Custom Token 생성 → 앱 redirect_uri로 리다이렉트
+ */
+export const authKakaoCallback = onRequest(authCors, async (req, res) => {
+  if (req.method !== "GET") {
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
+  const code = (req.query.code || "").toString().trim();
+  const state = (req.query.state || "").toString().trim();
+  const error = req.query.error;
+  const errorDesc = req.query.error_description;
+
+  let appRedirectUri = "";
+  try {
+    appRedirectUri = decodeURIComponent(state);
+  } catch (_) {
+    appRedirectUri = state;
+  }
+
+  if (error) {
+    const sep = appRedirectUri.includes("?") ? "&" : "?";
+    const errMsg = [error, errorDesc].filter(Boolean).join(": ");
+    res.redirect(302, `${appRedirectUri}${sep}auth_error=${encodeURIComponent(errMsg)}`);
+    return;
+  }
+
+  if (!code) {
+    res.redirect(302, `${appRedirectUri}${appRedirectUri.includes("?") ? "&" : "?"}auth_error=missing_code`);
+    return;
+  }
+
+  const clientId = kakaoRestApiKey.value();
+  if (!clientId || !clientId.trim()) {
+    res.redirect(302, `${appRedirectUri}${appRedirectUri.includes("?") ? "&" : "?"}auth_error=server_config`);
+    return;
+  }
+
+  const callbackUrl = getAuthKakaoCallbackUrl(req);
+  let accessToken = "";
+  let kakaoId = "";
+
+  try {
+    const tokenRes = await fetch(KAKAO_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=utf-8" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: clientId,
+        redirect_uri: callbackUrl,
+        code,
+      }).toString(),
+    });
+
+    if (!tokenRes.ok) {
+      const errText = await tokenRes.text();
+      console.error("Kakao token error:", tokenRes.status, errText);
+      res.redirect(302, `${appRedirectUri}${appRedirectUri.includes("?") ? "&" : "?"}auth_error=token_failed`);
+      return;
+    }
+
+    const tokenData = await tokenRes.json();
+    accessToken = (tokenData.access_token || "").toString();
+
+    const meRes = await fetch(KAKAO_USER_ME_URL, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!meRes.ok) {
+      console.error("Kakao user/me error:", meRes.status);
+      res.redirect(302, `${appRedirectUri}${appRedirectUri.includes("?") ? "&" : "?"}auth_error=user_failed`);
+      return;
+    }
+    const meData = await meRes.json();
+    kakaoId = String(meData.id ?? "");
+    if (!kakaoId) {
+      res.redirect(302, `${appRedirectUri}${appRedirectUri.includes("?") ? "&" : "?"}auth_error=no_kakao_id`);
+      return;
+    }
+  } catch (e) {
+    console.error("Kakao auth error:", e);
+    res.redirect(302, `${appRedirectUri}${appRedirectUri.includes("?") ? "&" : "?"}auth_error=exchange_failed`);
+    return;
+  }
+
+  try {
+    const firebaseUid = `kakao_${kakaoId}`;
+    const customToken = await admin.auth().createCustomToken(firebaseUid);
+    const sep = appRedirectUri.includes("?") ? "&" : "?";
+    res.redirect(302, `${appRedirectUri}${sep}firebase_custom_token=${encodeURIComponent(customToken)}`);
+  } catch (e) {
+    console.error("Firebase custom token error:", e);
+    res.redirect(302, `${appRedirectUri}${appRedirectUri.includes("?") ? "&" : "?"}auth_error=token_create_failed`);
+  }
+});
+
+/**
+ * 앱이 auth_code를 받았을 때 Firebase Custom Token으로 교환 (웹에서 콜백이 code만 넘기는 경우 대비)
+ * POST Body: { "code": "...", "redirectUri": "..." }
+ */
+export const authKakaoExchange = onRequest(authCors, async (req, res) => {
+  if (req.method === "OPTIONS") {
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.set("Access-Control-Allow-Headers", "Content-Type");
+    res.status(204).send("");
+    return;
+  }
+  if (req.method !== "POST") {
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
+  let body;
+  try {
+    body = typeof req.body === "string" ? JSON.parse(req.body) : req.body || {};
+  } catch (_) {
+    res.status(400).json({ error: "Invalid JSON body" });
+    return;
+  }
+
+  const code = (body.code || "").toString().trim();
+  const redirectUri = (body.redirectUri || "").toString().trim();
+  if (!code || !redirectUri) {
+    res.status(400).json({ error: "code and redirectUri are required" });
+    return;
+  }
+
+  const clientId = kakaoRestApiKey.value();
+  if (!clientId || !clientId.trim()) {
+    res.status(500).json({ error: "KAKAO_REST_API_KEY is not set" });
+    return;
+  }
+
+  // 앱이 받은 code는 redirect_uri=앱URL 로 발급된 것이므로 동일한 redirectUri로 토큰 요청
+  try {
+    const tokenRes = await fetch(KAKAO_TOKEN_URL, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded;charset=utf-8" },
+      body: new URLSearchParams({
+        grant_type: "authorization_code",
+        client_id: clientId,
+        redirect_uri: redirectUri,
+        code,
+      }).toString(),
+    });
+
+    if (!tokenRes.ok) {
+      const errText = await tokenRes.text();
+      console.error("Kakao token exchange error:", tokenRes.status, errText);
+      res.status(502).json({ error: "OAuth exchange failed" });
+      return;
+    }
+
+    const tokenData = await tokenRes.json();
+    const accessToken = (tokenData.access_token || "").toString();
+    const meRes = await fetch(KAKAO_USER_ME_URL, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!meRes.ok) {
+      res.status(502).json({ error: "Failed to get Kakao user" });
+      return;
+    }
+    const meData = await meRes.json();
+    const kakaoId = String(meData.id ?? "");
+    if (!kakaoId) {
+      res.status(502).json({ error: "No Kakao user id" });
+      return;
+    }
+
+    const firebaseUid = `kakao_${kakaoId}`;
+    const customToken = await admin.auth().createCustomToken(firebaseUid);
+    res.set("Access-Control-Allow-Origin", "*");
+    res.status(200).json({ firebaseCustomToken: customToken });
+  } catch (e) {
+    console.error("authKakaoExchange error:", e);
+    res.status(502).json({ error: e instanceof Error ? e.message : "Exchange failed" });
+  }
+});
+
+function getAuthKakaoCallbackUrl(req) {
+  const protocol = req.get("x-forwarded-proto") || req.protocol || "https";
+  const host = req.get("x-forwarded-host") || req.get("host") || "";
+  const base = `${protocol}://${host}`.replace(/\/$/, "");
+  return `${base}/authKakaoCallback`;
+}
