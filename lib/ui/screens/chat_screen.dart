@@ -26,6 +26,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final Set<String> _translatingMessageIds = <String>{};
 
   bool _sending = false;
+  int _lastEntriesLength = 0;
 
   /// 답장 대상 메시지 (입력창 위 미리보기용)
   ChatMessage? _replyTarget;
@@ -37,8 +38,6 @@ class _ChatScreenState extends State<ChatScreen> {
   final ItemScrollController _itemScrollController = ItemScrollController();
   /// messageId → 리스트 인덱스 (빌드 시 채움)
   final Map<String, int> _messageIdToIndex = <String, int>{};
-  /// 다음 빌드에서 맨 아래로 스크롤할지 (메시지 전송 직후)
-  bool _scrollToEndOnNextBuild = false;
 
   void _scrollToRepliedMessage(String? messageId) {
     if (messageId == null || messageId.isEmpty) return;
@@ -208,8 +207,6 @@ class _ChatScreenState extends State<ChatScreen> {
         text: '',
         imageUrls: urls,
       );
-      if (!mounted) return;
-      setState(() => _scrollToEndOnNextBuild = true);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('사진 ${urls.length}장을 보냈어요.')),
       );
@@ -286,7 +283,6 @@ class _ChatScreenState extends State<ChatScreen> {
       _controller.clear();
       setState(() {
         _replyTarget = null;
-        _scrollToEndOnNextBuild = true;
       });
     } catch (e) {
       if (!mounted) return;
@@ -690,21 +686,19 @@ class _ChatScreenState extends State<ChatScreen> {
                     final effectiveTranslatedText = _effectiveTranslatedText;
                     final translatingIds = _translatingMessageIds;
 
-                    if (_scrollToEndOnNextBuild && entries.isNotEmpty) {
+                    if (entries.length != _lastEntriesLength && entries.isNotEmpty) {
+                      _lastEntriesLength = entries.length;
                       WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (!mounted) return;
-                        if (_itemScrollController.isAttached) {
-                          final lastIndex = entries.length - 1;
-                          if (lastIndex >= 0) {
-                            _itemScrollController.scrollTo(
-                              index: lastIndex,
-                              duration: const Duration(milliseconds: 300),
-                              curve: Curves.easeOut,
-                              alignment: 1.0,
-                            );
-                          }
+                        if (!mounted || !_itemScrollController.isAttached) return;
+                        final lastIndex = entries.length - 1;
+                        if (lastIndex >= 0) {
+                          _itemScrollController.scrollTo(
+                            index: lastIndex,
+                            duration: const Duration(milliseconds: 300),
+                            curve: Curves.easeOut,
+                            alignment: 1.0,
+                          );
                         }
-                        if (mounted) setState(() => _scrollToEndOnNextBuild = false);
                       });
                     }
 
