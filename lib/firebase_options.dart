@@ -31,7 +31,8 @@ class DefaultFirebaseOptions {
     messagingSenderId: '516031766053',
     projectId: 'if-app-b2854',
     authDomain: 'if-app-b2854.firebaseapp.com',
-    storageBucket: 'if-app-b2854.appspot.com',
+    // Firebase 콘솔 기본 버킷 (신규 프로젝트는 .firebasestorage.app)
+    storageBucket: 'if-app-b2854.firebasestorage.app',
   );
 
   static const FirebaseOptions android = FirebaseOptions(

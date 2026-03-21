@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <!--
+    If you are serving your web app in a path other than the root, change the
+    href value below to reflect the base path you are serving from.
+
+    The path provided below has to start and end with a slash "/" in order for
+    it to work correctly.
+
+    For more details:
+    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
+
+    This is a placeholder for base href that will be replaced by the value of
+    the `--base-href` argument provided to `flutter build`.
+  -->
+  <base href="$FLUTTER_BASE_HREF">
+
+  <meta charset="UTF-8">
+  <!-- Firebase Auth Google 팝업(signInWithPopup) 시 COOP 경고 완화 (Chrome) -->
+  <meta http-equiv="Cross-Origin-Opener-Policy" content="same-origin-allow-popups">
+  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
+  <!-- 모바일/Chrome 반응형 모드에서 문서 너비를 기기 뷰포트에 맞춤 (없으면 기본 ~980px 등으로 잡혀 화면이 좁거나 한쪽으로 치우쳐 보일 수 있음) -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="A new Flutter project.">
+
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+  </style>
+
+  <!-- iOS meta tags & icons -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
+  <meta name="apple-mobile-web-app-title" content="if_app">
+  <link rel="apple-touch-icon" href="icons/Icon-192.png">
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="favicon.png"/>
+
+  <title>if_app</title>
+  <link rel="manifest" href="manifest.json">
+  <!-- Google Maps + Places (검색 자동완성). 콘솔에서 Maps JavaScript API, Places API, Geocoding API 활성화 -->
+  <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBkqTE6RYT2J8rzT7JT0xajWmsDVh6EA6I&amp;libraries=places,geometry"></script>
+  <script>
+    function isNumericOnly(s) {
+      s = (s || '').trim();
+      return s.length > 0 && /^\d+$/.test(s);
+    }
+    /// 번지(8-51)·동호 등 — 시설명이 아님
+    function isLikelyStreetFragment(s) {
+      s = (s || '').trim();
+      if (!s) return true;
+      if (isNumericOnly(s)) return true;
+      // 8-51, 12-3 같은 번지
+      if (/^\d{1,5}-\d{1,5}(-\d{1,5})?$/.test(s)) return true;
+      if (/^\d{1,5}동(\s*\d{1,5}호)?$/.test(s)) return true;
+      // 숫자·하이픈·공백만 짧은 문자열
+      if (s.length < 18 && /^[\d\s\-]+$/.test(s)) return true;
+      return false;
+    }
+    function resultTypesHasPoi(result) {
+      var rt = result.types || [];
+      for (var k = 0; k < rt.length; k++) {
+        var x = rt[k];
+        if (x === 'point_of_interest' || x === 'establishment' || x === 'park' ||
+            x === 'natural_feature' || x === 'tourist_attraction') return true;
+      }
+      return false;
+    }
+    function isPoiLikeComponentType(tj) {
+      return tj === 'point_of_interest' || tj === 'establishment' || tj === 'park' ||
+        tj === 'natural_feature' || tj === 'tourist_attraction';
+    }
+    /// 시설명 → 전체 주소 → (마지막) 번지 아닌 premise만
+    function pickBestGeocodeLabel(results) {
+      if (!results || !results.length) return '';
+      var r, i, j, t, comps, nm;
+      // 1) Geocoder가 POI로 분류한 result부터: 컴포넌트 시설명 또는 formatted_address
+      for (r = 0; r < results.length; r++) {
+        if (!resultTypesHasPoi(results[r])) continue;
+        comps = results[r].address_components;
+        if (comps) {
+          for (i = 0; i < comps.length; i++) {
+            t = comps[i].types || [];
+            for (j = 0; j < t.length; j++) {
+              if (isPoiLikeComponentType(t[j])) {
+                nm = (comps[i].long_name || '').trim();
+                if (nm && !isLikelyStreetFragment(nm)) return nm;
+              }
+            }
+          }
+        }
+        var faPoi = (results[r].formatted_address || '').trim();
+        if (faPoi) return faPoi;
+      }
+      // 2) 모든 result에서 시설·공원 등 컴포넌트
+      for (r = 0; r < results.length; r++) {
+        comps = results[r].address_components;
+        if (!comps) continue;
+        for (i = 0; i < comps.length; i++) {
+          t = comps[i].types || [];
+          for (j = 0; j < t.length; j++) {
+            if (isPoiLikeComponentType(t[j])) {
+              nm = (comps[i].long_name || '').trim();
+              if (nm && !isLikelyStreetFragment(nm)) return nm;
+            }
+          }
+        }
+      }
+      // 3) 전체 주소 (전쟁기념관 등이 문장 안에 포함됨)
+      for (r = 0; r < results.length; r++) {
+        var fa = (results[r].formatted_address || '').trim();
+        if (fa) return fa;
+      }
+      // 4) premise/subpremise — 번지 패턴만 아닐 때만
+      for (r = 0; r < results.length; r++) {
+        comps = results[r].address_components;
+        if (!comps) continue;
+        for (i = 0; i < comps.length; i++) {
+          t = comps[i].types || [];
+          for (j = 0; j < t.length; j++) {
+            if (t[j] === 'premise' || t[j] === 'subpremise') {
+              nm = (comps[i].long_name || '').trim();
+              if (nm && !isLikelyStreetFragment(nm)) return nm;
+            }
+          }
+        }
+      }
+      return '';
+    }
+    function nearbyPlaceName(lat, lng, geocodeLabel, callback) {
+      if (!window.google || !google.maps.places || !google.maps.geometry) {
+        callback(geocodeLabel || '');
+        return;
+      }
+      var div = document.createElement('div');
+      var service = new google.maps.places.PlacesService(div);
+      var pt = new google.maps.LatLng(lat, lng);
+      service.nearbySearch(
+        { location: { lat: lat, lng: lng }, radius: 90 },
+        function (nr, nstatus) {
+          var OK = google.maps.places.PlacesServiceStatus.OK;
+          if (nstatus !== OK || !nr || !nr.length) {
+            callback(geocodeLabel || '');
+            return;
+          }
+          var i, p, d, k, ts, nm, good;
+          var goodList = [];
+          var anyList = [];
+          for (i = 0; i < nr.length; i++) {
+            p = nr[i];
+            if (!p.geometry || !p.geometry.location) continue;
+            d = google.maps.geometry.spherical.computeDistanceBetween(pt, p.geometry.location);
+            if (d > 72) continue;
+            nm = String(p.name || '').trim();
+            if (!nm || isLikelyStreetFragment(nm)) continue;
+            ts = p.types || [];
+            good = false;
+            for (k = 0; k < ts.length; k++) {
+              if (ts[k] === 'park' || ts[k] === 'natural_feature' || ts[k] === 'tourist_attraction' ||
+                  ts[k] === 'point_of_interest' || ts[k] === 'establishment') {
+                good = true;
+                break;
+              }
+            }
+            if (good && d < 65) goodList.push({ p: p, d: d });
+            if (d < 50) anyList.push({ p: p, d: d });
+          }
+          goodList.sort(function (a, b) {
+            return a.d - b.d;
+          });
+          if (goodList.length) {
+            callback(String(goodList[0].p.name).trim());
+            return;
+          }
+          anyList.sort(function (a, b) {
+            return a.d - b.d;
+          });
+          if (anyList.length && anyList[0].d < 38) {
+            callback(String(anyList[0].p.name).trim());
+            return;
+          }
+          callback(geocodeLabel || '');
+        }
+      );
+    }
+    function ifAppReverseGeocodeAsync(lat, lng, callback) {
+      function run() {
+        if (!window.google || !google.maps) {
+          callback('');
+          return;
+        }
+        var geocoder = new google.maps.Geocoder();
+        geocoder.geocode({ location: { lat: lat, lng: lng } }, function (results, status) {
+          if (status !== 'OK' || !results || !results.length) {
+            callback('');
+            return;
+          }
+          var geocodeLabel = pickBestGeocodeLabel(results);
+          nearbyPlaceName(lat, lng, geocodeLabel, callback);
+        });
+      }
+      if (window.google && google.maps) {
+        run();
+      } else {
+        var n = 0;
+        var id = setInterval(function () {
+          n++;
+          if (window.google && google.maps) {
+            clearInterval(id);
+            run();
+          } else if (n > 100) {
+            clearInterval(id);
+            callback('');
+          }
+        }, 50);
+      }
+    }
+    function ifAppPlacesPredictionsAsync(input, callback) {
+      function run() {
+        if (!window.google || !google.maps || !google.maps.places) {
+          callback('[]');
+          return;
+        }
+        var service = new google.maps.places.AutocompleteService();
+        service.getPlacePredictions(
+          {
+            input: input,
+            language: 'ko',
+            componentRestrictions: { country: 'kr' }
+          },
+          function (predictions, status) {
+            var OK = google.maps.places.PlacesServiceStatus.OK;
+            if (status !== OK || !predictions || !predictions.length) {
+              callback('[]');
+              return;
+            }
+            var out = predictions.slice(0, 8).map(function (p) {
+              return { description: p.description, place_id: p.place_id };
+            });
+            callback(JSON.stringify(out));
+          }
+        );
+      }
+      if (window.google && google.maps && google.maps.places) {
+        run();
+      } else {
+        var n = 0;
+        var id = setInterval(function () {
+          n++;
+          if (window.google && google.maps && google.maps.places) {
+            clearInterval(id);
+            run();
+          } else if (n > 100) {
+            clearInterval(id);
+            callback('[]');
+          }
+        }, 50);
+      }
+    }
+    function ifAppPlaceDetailsAsync(placeId, callback) {
+      function run() {
+        if (!window.google || !google.maps || !google.maps.places) {
+          callback('');
+          return;
+        }
+        var div = document.createElement('div');
+        var service = new google.maps.places.PlacesService(div);
+        service.getDetails(
+          {
+            placeId: placeId,
+            fields: ['geometry', 'name', 'formatted_address'],
+            language: 'ko'
+          },
+          function (place, status) {
+            var OK = google.maps.places.PlacesServiceStatus.OK;
+            if (status !== OK || !place || !place.geometry || !place.geometry.location) {
+              callback('');
+              return;
+            }
+            var loc = place.geometry.location;
+            var name = (place.name || '').trim();
+            var addr = (place.formatted_address || '').trim();
+            var label = name || addr;
+            callback(
+              JSON.stringify({
+                lat: loc.lat(),
+                lng: loc.lng(),
+                label: label
+              })
+            );
+          }
+        );
+      }
+      if (window.google && google.maps && google.maps.places) {
+        run();
+      } else {
+        var n = 0;
+        var id = setInterval(function () {
+          n++;
+          if (window.google && google.maps && google.maps.places) {
+            clearInterval(id);
+            run();
+          } else if (n > 100) {
+            clearInterval(id);
+            callback('');
+          }
+        }, 50);
+      }
+    }
+  </script>
+</head>
+<body>
+  <!--
+    You can customize the "flutter_bootstrap.js" script.
+    This is useful to provide a custom configuration to the Flutter loader
+    or to give the user feedback during the initialization process.
+
+    For more details:
+    * https://docs.flutter.dev/platform-integration/web/initialization
+  -->
+  <script src="flutter_bootstrap.js" async></script>
+</body>
+</html>

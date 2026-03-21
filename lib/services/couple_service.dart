@@ -128,7 +128,7 @@ class CoupleService {
       );
     }
 
-    throw Exception('초대 코드 생성에 실패했습니다.');
+    throw Exception('INVITE_CREATE_FAILED');
   }
 
   static Future<String> connectWithInviteCode({
@@ -146,21 +146,21 @@ class CoupleService {
         final inviteSnap = await tx.get(inviteRef);
 
         if (!inviteSnap.exists || inviteSnap.data() == null) {
-          return '$_txErrorPrefix유효하지 않은 코드입니다.';
+          return '${_txErrorPrefix}INVALID_CODE';
         }
 
         final invite = InviteCodeInfo.fromDoc(inviteSnap);
 
         if (invite.used) {
-          return '$_txErrorPrefix유효하지 않은 코드입니다.';
+          return '${_txErrorPrefix}INVALID_CODE';
         }
 
         if (!invite.expiresAt.isAfter(now)) {
-          return '$_txErrorPrefix초대 코드가 만료되었습니다.';
+          return '${_txErrorPrefix}INVITE_EXPIRED';
         }
 
         if (invite.createdBy == currentUserUid) {
-          return '$_txErrorPrefix유효하지 않은 코드입니다.';
+          return '${_txErrorPrefix}INVALID_CODE';
         }
 
         final userARef = _users.doc(invite.createdBy);
@@ -170,7 +170,7 @@ class CoupleService {
         final userBSnap = await tx.get(userBRef);
 
         if (!userASnap.exists || !userBSnap.exists) {
-          return '$_txErrorPrefix유효하지 않은 코드입니다.';
+          return '${_txErrorPrefix}INVALID_CODE';
         }
 
         final userAData = userASnap.data()!;
@@ -180,7 +180,7 @@ class CoupleService {
         final userBCoupleId = (userBData['coupleId'] ?? '') as String;
 
         if (userACoupleId.isNotEmpty || userBCoupleId.isNotEmpty) {
-          return '$_txErrorPrefix유효하지 않은 코드입니다.';
+          return '${_txErrorPrefix}INVALID_CODE';
         }
 
         final coupleRef = _couples.doc();
@@ -249,7 +249,7 @@ class CoupleService {
       ) async {
         final currentUserSnap = await tx.get(currentUserRef);
         if (!currentUserSnap.exists || currentUserSnap.data() == null) {
-          return '$_txErrorPrefix사용자 정보를 찾을 수 없습니다.';
+          return '${_txErrorPrefix}USER_NOT_FOUND';
         }
 
         final currentUserData = currentUserSnap.data()!;
@@ -280,7 +280,7 @@ class CoupleService {
             .toList();
 
         if (!users.contains(currentUserUid)) {
-          return '$_txErrorPrefix연결 정보가 올바르지 않습니다.';
+          return '${_txErrorPrefix}CONNECTION_INVALID';
         }
 
         for (final uid in users) {
@@ -300,9 +300,9 @@ class CoupleService {
       }
     } on FirebaseException catch (e) {
       if (e.code == 'permission-denied') {
-        throw Exception('연결 해제 권한이 없습니다. Firestore 규칙을 확인해 주세요.');
+        throw Exception('DISCONNECT_PERMISSION_DENIED');
       }
-      throw Exception('연결 해제 중 오류가 발생했습니다. (${e.code})');
+      throw Exception('DISCONNECT_ERROR:${e.code}');
     }
   }
 

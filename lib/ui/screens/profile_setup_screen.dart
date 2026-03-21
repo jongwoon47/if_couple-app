@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../services/user_service.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
@@ -21,17 +22,6 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   String? _language;
   bool _saving = false;
   String? _error;
-
-  static const List<String> _stepTitles = [
-    '어떻게 불러드릴까요?',
-    '생일이 언제인가요?',
-    '주로 사용하는 언어는?',
-  ];
-
-  static const List<_LanguageOption> _languages = [
-    _LanguageOption(value: 'Korean', label: '한국어'),
-    _LanguageOption(value: 'Japanese', label: '일본어'),
-  ];
 
   @override
   void dispose() {
@@ -63,32 +53,32 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     return age >= 14;
   }
 
-  String _stepHintText() {
+  String _stepHintText(AppLocalizations l10n) {
     switch (_step) {
       case 0:
-        return '2~10자 이내로 입력해 주세요.';
+        return l10n.psNicknameLength;
       case 1:
-        return '본인의 생일을 선택해 주세요.';
+        return l10n.psBirthdayPick;
       case 2:
-        return '주 언어를 선택하면 번역 기능 정확도가 올라가요.';
+        return l10n.psLanguageAccuracy;
       default:
         return '';
     }
   }
 
-  String _stepErrorText() {
+  String _stepErrorText(AppLocalizations l10n) {
     switch (_step) {
       case 0:
-        return '닉네임을 2~10자로 입력해 주세요.';
+        return l10n.psNicknameError;
       case 1:
         if (_birthday == null) {
-          return '생일을 선택해 주세요.';
+          return l10n.psBirthdaySelect;
         }
-        return '14세 이상만 가입할 수 있어요.';
+        return l10n.psAgeError;
       case 2:
-        return '언어를 선택해 주세요.';
+        return l10n.psLanguageSelect;
       default:
-        return '입력값을 확인해 주세요.';
+        return l10n.psInputError;
     }
   }
 
@@ -114,7 +104,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
     if (!_isStepValid) {
       setState(() {
-        _error = _stepErrorText();
+        _error = _stepErrorText(AppLocalizations.of(context)!);
       });
       return;
     }
@@ -139,9 +129,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   }
 
   Future<void> _submit() async {
+    final l10n = AppLocalizations.of(context)!;
     if (_birthday == null || _language == null) {
       setState(() {
-        _error = '입력값을 다시 확인해 주세요.';
+        _error = l10n.psConfirmError;
       });
       return;
     }
@@ -171,11 +162,15 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
     }
   }
 
-  Widget _buildStepContent() {
+  Widget _buildStepContent(
+    AppLocalizations l10n,
+    List<_LanguageOption> langOptions,
+  ) {
     switch (_step) {
       case 0:
         return _NicknameStep(
           controller: _nicknameController,
+          hintText: l10n.psNicknameHint,
           onChanged: (_) {
             setState(() {
               _error = null;
@@ -185,7 +180,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       case 1:
         return _DateStep(
           value: _birthday,
-          placeholder: '생일 선택',
+          placeholder: l10n.psBirthdayPlaceholder,
           onTap: () => _pickDate(
             initialDate: _birthday,
             firstDate: DateTime(1950),
@@ -201,7 +196,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       case 2:
         return _LanguageStep(
           selected: _language,
-          options: _languages,
+          options: langOptions,
           onChanged: (value) {
             setState(() {
               _language = value;
@@ -216,7 +211,22 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final isLastStep = _step == 2;
+    final stepTitles = [
+      l10n.psNicknameQuestion,
+      l10n.psBirthdayQuestion,
+      l10n.psLanguageQuestion,
+    ];
+    final langOptions = [
+      _LanguageOption(value: 'Korean', label: l10n.psLangKorean),
+      _LanguageOption(value: 'Japanese', label: l10n.psLangJapanese),
+    ];
+    final stepLabels = [
+      l10n.psFieldNickname,
+      l10n.psFieldBirthday,
+      l10n.psFieldLanguage,
+    ];
 
     return Scaffold(
       body: Container(
@@ -242,7 +252,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       const _IfWordmark(),
                       const SizedBox(height: 48),
                       Text(
-                        _stepTitles[_step],
+                        stepTitles[_step],
                         textAlign: TextAlign.center,
                         style: const TextStyle(
                           color: Color(0xFF6A6071),
@@ -251,10 +261,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         ),
                       ),
                       const SizedBox(height: 28),
-                      _buildStepContent(),
+                      _buildStepContent(l10n, langOptions),
                       const SizedBox(height: 12),
                       Text(
-                        _stepHintText(),
+                        _stepHintText(l10n),
                         style: const TextStyle(
                           color: Color(0xFF9A8EA8),
                           fontSize: 16,
@@ -268,8 +278,8 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                       const Spacer(),
                       _PrimaryButton(
                         label: _saving
-                            ? '저장 중...'
-                            : (isLastStep ? '완료' : '다음'),
+                            ? l10n.saving
+                            : (isLastStep ? l10n.done : l10n.psNext),
                         enabled: _isStepValid && !_saving,
                         onTap: _onNext,
                       ),
@@ -280,9 +290,9 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                             ? null
                             : TextButton(
                                 onPressed: _onPrev,
-                                child: const Text(
-                                  '이전',
-                                  style: TextStyle(
+                                child: Text(
+                                  l10n.psPrevious,
+                                  style: const TextStyle(
                                     color: Color(0xFF9B8FB0),
                                     fontSize: 16,
                                   ),
@@ -290,7 +300,10 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                               ),
                       ),
                       const SizedBox(height: 10),
-                      _StepOrderIndicator(currentStep: _step),
+                      _StepOrderIndicator(
+                        currentStep: _step,
+                        labels: stepLabels,
+                      ),
                       const SizedBox(height: 20),
                     ],
                   ),
@@ -341,10 +354,12 @@ class _IfWordmark extends StatelessWidget {
 class _NicknameStep extends StatelessWidget {
   const _NicknameStep({
     required this.controller,
+    required this.hintText,
     required this.onChanged,
   });
 
   final TextEditingController controller;
+  final String hintText;
   final ValueChanged<String> onChanged;
 
   @override
@@ -355,7 +370,7 @@ class _NicknameStep extends StatelessWidget {
       maxLength: 10,
       decoration: InputDecoration(
         counterText: '',
-        hintText: '닉네임 입력',
+        hintText: hintText,
         hintStyle: const TextStyle(color: Color(0xFFB3A4C0)),
         filled: true,
         fillColor: const Color(0xFFF8F1FB),
@@ -390,38 +405,44 @@ class _DateStep extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = value == null ? placeholder : DateFormat('yyyy-MM-dd').format(value!);
+    final lc = Localizations.localeOf(context).languageCode;
+    final text = value == null
+        ? placeholder
+        : DateFormat.yMMMd(lc).format(value!);
 
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(18),
-      child: Ink(
-        height: 56,
-        decoration: BoxDecoration(
-          color: const Color(0xFFF8F1FB),
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(
-            color: const Color(0xFF6A6071),
-            width: 1.5,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(18),
+        child: Ink(
+          height: 56,
+          decoration: BoxDecoration(
+            color: const Color(0xFFFDFBFE),
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(
+              color: const Color(0xFFD8D4DE),
+              width: 1.2,
+            ),
           ),
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            const Icon(Icons.calendar_today_rounded, size: 18, color: Color(0xFF9C8CA8)),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                text,
-                style: TextStyle(
-                  color: value == null ? const Color(0xFFB3A4C0) : const Color(0xFF5C516A),
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              const Icon(Icons.calendar_today_rounded, size: 18, color: Color(0xFF9C8CA8)),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  text,
+                  style: TextStyle(
+                    color: value == null ? const Color(0xFFB3A4C0) : const Color(0xFF5C516A),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
-            ),
-            const Icon(Icons.chevron_right, color: Color(0xFFA796B3)),
-          ],
+              const Icon(Icons.chevron_right, color: Color(0xFFA796B3)),
+            ],
+          ),
         ),
       ),
     );
@@ -444,39 +465,63 @@ class _LanguageStep extends StatelessWidget {
     return Column(
       children: [
         for (final option in options) ...[
-          InkWell(
-            onTap: () => onChanged(option.value),
-            borderRadius: BorderRadius.circular(14),
-            child: Ink(
-              width: double.infinity,
-              height: 52,
-              decoration: BoxDecoration(
-                color: selected == option.value
-                    ? const Color(0xFFF2C4DF)
-                    : const Color(0xFFF8F1FB),
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => onChanged(option.value),
+              borderRadius: BorderRadius.circular(16),
+              child: Ink(
+                width: double.infinity,
+                height: 54,
+                decoration: BoxDecoration(
                   color: selected == option.value
-                      ? const Color(0xFF6A6071)
-                      : const Color(0xFFB7A7C5),
-                  width: 1.5,
-                ),
-              ),
-              child: Center(
-                child: Text(
-                  option.label,
-                  style: TextStyle(
+                      ? const Color(0xFFFFE8F2)
+                      : const Color(0xFFFDFBFE),
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(
                     color: selected == option.value
-                        ? const Color(0xFF4B3A5A)
-                        : const Color(0xFF6D6179),
-                    fontSize: 16,
-                    fontWeight: FontWeight.w700,
+                        ? const Color(0xFFE98ABF)
+                        : const Color(0xFFD8D4DE),
+                    width: selected == option.value ? 2 : 1.2,
                   ),
+                  boxShadow: selected == option.value
+                      ? const [
+                          BoxShadow(
+                            color: Color(0x332A1A33),
+                            blurRadius: 8,
+                            offset: Offset(0, 2),
+                          ),
+                        ]
+                      : null,
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        option.label,
+                        style: TextStyle(
+                          color: selected == option.value
+                              ? const Color(0xFF5C2D4A)
+                              : const Color(0xFF6D6179),
+                          fontSize: 17,
+                          fontWeight:
+                              selected == option.value ? FontWeight.w800 : FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    if (selected == option.value)
+                      const Icon(
+                        Icons.check_circle_rounded,
+                        color: Color(0xFFE98ABF),
+                        size: 24,
+                      ),
+                  ],
                 ),
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
         ],
       ],
     );
@@ -569,11 +614,13 @@ class _ErrorBox extends StatelessWidget {
 }
 
 class _StepOrderIndicator extends StatelessWidget {
-  const _StepOrderIndicator({required this.currentStep});
+  const _StepOrderIndicator({
+    required this.currentStep,
+    required this.labels,
+  });
 
   final int currentStep;
-
-  static const labels = ['닉네임', '생일', '언어'];
+  final List<String> labels;
 
   @override
   Widget build(BuildContext context) {

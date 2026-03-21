@@ -7,6 +7,41 @@ class UserService {
   static final CollectionReference<Map<String, dynamic>> _users =
       FirebaseFirestore.instance.collection('users');
 
+  /// 세션당 uid 1회: 레거시 필드 제거·불일치 플래그 보정 (배포 전 기존 DB 정리용)
+  static String? _sessionRepairedUserId;
+  static String? _repairScheduledForUserId;
+
+  /// [AppGate]에서 매 빌드 호출 → true일 때만 `addPostFrameCallback`으로 [repairUserDocumentIfNeeded] 실행
+  static bool shouldScheduleUserDocumentRepair(AppUser user) {
+    if (_repairScheduledForUserId == user.userId) return false;
+    _repairScheduledForUserId = user.userId;
+    return true;
+  }
+
+  /// 기존 사용자 문서 정리:
+  /// - 커플 미연결인데 `hasSeenConnectionComplete == true` → false (초대 코드 화면 건너뛰기 방지)
+  /// - 사용하지 않는 `activeInviteCode` 필드 삭제 (초대는 `inviteCodes` 컬렉션만 사용)
+  static Future<void> repairUserDocumentIfNeeded(AppUser user) async {
+    if (_sessionRepairedUserId == user.userId) return;
+    _sessionRepairedUserId = user.userId;
+
+    final updates = <String, dynamic>{};
+
+    if ((user.coupleId == null || user.coupleId!.isEmpty) &&
+        user.hasSeenConnectionComplete) {
+      updates['hasSeenConnectionComplete'] = false;
+    }
+
+    final snap = await _users.doc(user.userId).get();
+    final data = snap.data();
+    if (data != null && data.containsKey('activeInviteCode')) {
+      updates['activeInviteCode'] = FieldValue.delete();
+    }
+
+    if (updates.isEmpty) return;
+    await _users.doc(user.userId).set(updates, SetOptions(merge: true));
+  }
+
   static Future<void> createUserIfNotExists(User firebaseUser) async {
     final docRef = _users.doc(firebaseUser.uid);
     final doc = await docRef.get();
@@ -23,9 +58,9 @@ class UserService {
       'language': '',
       'startDate': null,
       'coupleId': null,
-      'activeInviteCode': null,
       'coupleJoinedAt': null,
-      'hasSeenConnectionComplete': true,
+      // 커플 연결 축하 화면을 보려면 false에서 시작 (연결 후 true로 갱신)
+      'hasSeenConnectionComplete': false,
       'notificationAllEnabled': true,
       'notificationMessageEnabled': true,
       'notificationAlbumEnabled': true,

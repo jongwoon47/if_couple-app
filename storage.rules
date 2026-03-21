@@ -1,9 +1,20 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // 채팅 이미지: 로그인한 사용자만 업로드/다운로드
+    /// 로그인 사용자 문서의 coupleId와 경로의 coupleId가 같을 때만 접근
+    function isCoupleMember(coupleId) {
+      return request.auth != null &&
+        firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data.coupleId == coupleId;
+    }
+
+    // 채팅 이미지 — ChatService: couples/{coupleId}/images/{fileName}
     match /couples/{coupleId}/images/{fileName} {
-      allow read, write: if request.auth != null;
+      allow read, write: if isCoupleMember(coupleId);
+    }
+
+    // 앨범 사진 — AlbumService: couples/{coupleId}/albums/{albumId}/photos/{fileName}
+    match /couples/{coupleId}/albums/{albumId}/photos/{fileName} {
+      allow read, write: if isCoupleMember(coupleId);
     }
   }
 }

@@ -39,8 +39,8 @@ GitHub에 올릴 때 커밋에 표시될 이름과 이메일입니다.
 **다른 컴퓨터에서도 같은 GitHub 계정을 쓸 거라면, 각 PC에서 한 번씩 설정하면 됩니다.**
 
 ```powershell
-git config --global user.name "본인이름"
-git config --global user.email "github에_가입한_이메일@example.com"
+git config --global user.name "jongwoon47"
+git config --global user.email "jongun0361@gmail.com"
 ```
 
 예:  

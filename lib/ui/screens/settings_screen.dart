@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
+import '../../l10n/app_locale_scope.dart';
 import '../../models/app_user.dart';
 import '../../services/couple_service.dart';
 import '../../services/user_service.dart';
@@ -29,7 +31,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return currentDate.difference(start).inDays + 1;
   }
 
+  String _mapDisconnectError(Object e, AppLocalizations l10n) {
+    final msg = e.toString().replaceFirst('Exception: ', '').trim();
+    if (msg == 'DISCONNECT_PERMISSION_DENIED') {
+      return l10n.coupleDisconnectNoPermission;
+    }
+    if (msg.startsWith('DISCONNECT_ERROR:')) {
+      return l10n.coupleDisconnectError(
+        msg.substring('DISCONNECT_ERROR:'.length),
+      );
+    }
+    return msg;
+  }
+
   Future<void> _confirmDisconnect(AppUser user) async {
+    final l10n = AppLocalizations.of(context)!;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) {
@@ -38,19 +54,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
           ),
-          title: const Text(
-            '정말 연결을 해제하시겠어요?',
-            style: TextStyle(
+          title: Text(
+            l10n.disconnectConfirmTitle,
+            style: const TextStyle(
               color: Color(0xFF7F5C7C),
               fontWeight: FontWeight.w800,
               fontSize: 24,
             ),
             textAlign: TextAlign.center,
           ),
-          content: const Text(
-            '연결을 해제하면 D+ 일수, 채팅 대화, 추억 데이터가 '
-            '더 이상 동기화되지 않습니다.',
-            style: TextStyle(
+          content: Text(
+            l10n.disconnectConfirmBody,
+            style: const TextStyle(
               color: Color(0xFF8F7B97),
               fontSize: 15,
               fontWeight: FontWeight.w500,
@@ -64,7 +79,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 Expanded(
                   child: OutlinedButton(
                     onPressed: () => Navigator.of(context).pop(false),
-                    child: const Text('취소'),
+                    child: Text(l10n.cancel),
                   ),
                 ),
                 const SizedBox(width: 10),
@@ -75,7 +90,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       foregroundColor: Colors.white,
                     ),
                     onPressed: () => Navigator.of(context).pop(true),
-                    child: const Text('연결 해제'),
+                    child: Text(l10n.disconnect),
                   ),
                 ),
               ],
@@ -97,10 +112,11 @@ class _SettingsScreenState extends State<SettingsScreen> {
       Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
+      final l10n = AppLocalizations.of(context)!;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            e.toString().replaceFirst('Exception: ', '').trim(),
+            _mapDisconnectError(e, l10n),
           ),
         ),
       );
@@ -120,10 +136,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       builder: (context, snapshot) {
         final user = snapshot.data ?? widget.appUser;
         final dDay = _dDay(user.startDate ?? DateTime.now());
+        final l10n = AppLocalizations.of(context)!;
+        final scope = AppLocaleScope.of(context);
 
         return Scaffold(
           appBar: AppBar(
-            title: const Text('설정'),
+            title: Text(l10n.settingsTitle),
           ),
           body: Container(
             decoration: const BoxDecoration(
@@ -163,7 +181,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '${user.nickname}  ♥  ${user.partnerNickname.trim().isEmpty ? '연인' : user.partnerNickname}',
+                                    '${user.nickname}  ♥  ${user.partnerNickname.trim().isEmpty ? l10n.partnerDefault : user.partnerNickname}',
                                     style: const TextStyle(
                                       color: Color(0xFF6F5C7C),
                                       fontSize: 18,
@@ -173,7 +191,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                   const SizedBox(height: 4),
                                   Text(
                                     user.statusMessage.isEmpty
-                                        ? '서로의 일상을 함께 채워요.'
+                                        ? l10n.statusDefaultEmpty
                                         : user.statusMessage,
                                     style: const TextStyle(
                                       color: Color(0xFF9A86A8),
@@ -208,8 +226,51 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 16),
                   _SettingsItem(
+                    icon: Icons.language_rounded,
+                    title: l10n.languageSettings,
+                    onTap: () {
+                      showModalBottomSheet<void>(
+                        context: context,
+                        backgroundColor: const Color(0xFFFDF6FF),
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                        ),
+                        builder: (ctx) {
+                          return SafeArea(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                ListTile(
+                                  title: Text(l10n.languageKorean),
+                                  trailing: scope.locale.languageCode == 'ko'
+                                      ? const Icon(Icons.check_rounded, color: Color(0xFFE77FB6))
+                                      : null,
+                                  onTap: () {
+                                    scope.setLocale(const Locale('ko'));
+                                    Navigator.of(ctx).pop();
+                                  },
+                                ),
+                                ListTile(
+                                  title: Text(l10n.languageJapanese),
+                                  trailing: scope.locale.languageCode == 'ja'
+                                      ? const Icon(Icons.check_rounded, color: Color(0xFFE77FB6))
+                                      : null,
+                                  onTap: () {
+                                    scope.setLocale(const Locale('ja'));
+                                    Navigator.of(ctx).pop();
+                                  },
+                                ),
+                              ],
+                            ),
+                          );
+                        },
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 10),
+                  _SettingsItem(
                     icon: Icons.edit_rounded,
-                    title: '프로필 편집',
+                    title: l10n.profileEdit,
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
@@ -221,7 +282,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 10),
                   _SettingsItem(
                     icon: Icons.notifications_active_rounded,
-                    title: '알림 설정',
+                    title: l10n.notificationSettings,
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(
@@ -233,7 +294,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 10),
                   _SettingsItem(
                     icon: Icons.heart_broken_rounded,
-                    title: _disconnecting ? '연결 해제 중...' : '연결 해제',
+                    title: _disconnecting ? l10n.disconnecting : l10n.disconnect,
                     danger: true,
                     onTap: _disconnecting || (user.coupleId?.isEmpty ?? true)
                         ? null
@@ -242,7 +303,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   const SizedBox(height: 10),
                   _SettingsItem(
                     icon: Icons.info_outline_rounded,
-                    title: '앱 정보',
+                    title: l10n.appInfo,
                     onTap: () {
                       Navigator.of(context).push(
                         MaterialPageRoute(

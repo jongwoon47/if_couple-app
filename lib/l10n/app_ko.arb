@@ -1,0 +1,441 @@
+{
+  "@@locale": "ko",
+  "appTitle": "IF App",
+  "splashPreparingIf": "IF를 준비하는 중이에요...",
+  "splashCheckingLogin": "로그인 상태를 확인하고 있어요...",
+  "splashLoadingProfile": "내 정보를 불러오고 있어요...",
+  "splashDefault": "앱을 준비하고 있어요...",
+  "appLoadErrorTitle": "앱을 불러오는 데 문제가 생겼어요",
+  "appLoadErrorBody": "네트워크 연결을 확인한 뒤\n앱을 다시 실행해 주세요.",
+  "settingsTitle": "설정",
+  "profileEdit": "프로필 편집",
+  "notificationSettings": "알림 설정",
+  "disconnect": "연결 해제",
+  "disconnecting": "연결 해제 중...",
+  "disconnectConfirmTitle": "정말 연결을 해제하시겠어요?",
+  "disconnectConfirmBody": "연결을 해제하면 D+ 일수, 채팅 대화, 추억 데이터가 더 이상 동기화되지 않습니다.",
+  "cancel": "취소",
+  "appInfo": "앱 정보",
+  "partnerDefault": "연인",
+  "statusDefaultEmpty": "서로의 일상을 함께 채워요.",
+  "languageSettings": "언어",
+  "languageKorean": "한국어",
+  "languageJapanese": "日本語",
+  "tabHome": "홈",
+  "tabChat": "대화",
+  "tabTrip": "여행",
+  "tabCalendar": "캘린더",
+  "tabAlbum": "앨범",
+  "save": "저장",
+  "saving": "저장 중...",
+  "done": "완료",
+  "delete": "삭제",
+  "close": "닫기",
+  "confirm": "확인",
+  "confirming": "확인 중...",
+  "loginTagline": "서로의 언어를 이어주는 공간",
+  "loginServerNotConfigured": "서버 주소가 설정되지 않았어요.\n--dart-define=AUTH_API_BASE_URL 값을 넣어 주세요.",
+  "loginNetworkUnstable": "네트워크가 불안정해요.\n잠시 후 다시 시도해 주세요.",
+  "loginOAuthFailed": "소셜 로그인 인증에 실패했어요.\n다시 시도해 주세요.",
+  "loginAccountExists": "이미 가입된 계정이에요.\n기존 로그인 방식으로 시도해 주세요.",
+  "loginFailed": "로그인에 실패했어요.\n다시 한 번 시도해 주세요.",
+  "loginKakao": "카카오 로그인",
+  "loginLine": "LINE으로 로그인",
+  "loginLineShort": "LINE",
+  "loginGoogle": "구글로 로그인",
+  "connectTitle": "연인과 연결하세요",
+  "connectSubtitle": "초대 코드를 입력하거나 생성해서 연결할 수 있어요.",
+  "connectButton": "연결하기",
+  "connectConnecting": "연결 중...",
+  "connectOr": "또는",
+  "inviteCopyDone": "초대 코드를 복사했어요.",
+  "inviteGenerate": "초대 코드 생성",
+  "inviteGenerating": "코드 생성 중...",
+  "inviteRefresh": "새 코드 생성",
+  "inviteRefreshing": "새 코드 생성 중...",
+  "timeRemainingPrefix": "남은 시간: ",
+  "connectErrorPermission": "연결 권한이 없습니다. Firestore 규칙을 확인해 주세요.",
+  "connectErrorGeneric": "처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.\n(로그인 상태와 Firestore 규칙을 확인해 보세요.)",
+  "codeHintEmpty": "영문/숫자 6자리 초대 코드를 입력해 주세요.",
+  "codeHintValid": "코드 형식이 올바릅니다.",
+  "codeHintInvalid": "코드 형식이 올바르지 않습니다. 6자리를 맞춰 주세요.",
+  "coupleConnectedTitle": "커플 연결 완료!",
+  "coupleConnectedSubtitle": "서로 연결되었어요!\n둘만의 공간을 즐겨보세요.",
+  "coupleInvalidCode": "유효하지 않은 코드입니다.",
+  "coupleInviteExpired": "초대 코드가 만료되었습니다.",
+  "coupleUserNotFound": "사용자 정보를 찾을 수 없습니다.",
+  "coupleConnectionInvalid": "연결 정보가 올바르지 않습니다.",
+  "coupleInviteCreateFailed": "초대 코드 생성에 실패했습니다.",
+  "coupleDisconnectNoPermission": "연결 해제 권한이 없습니다. Firestore 규칙을 확인해 주세요.",
+  "coupleDisconnectError": "연결 해제 중 오류가 발생했습니다. ({code})",
+  "@coupleDisconnectError": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "homeTogetherTime": "우리가 함께한 시간",
+  "homeStartDate": "{date} 시작",
+  "@homeStartDate": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "homeGreetingQuestion": "오늘 서로 인사했나요?",
+  "homeStartChat": "톡 시작하기",
+  "chatTitle": "대화",
+  "chatEmpty": "아직 메시지가 없어요. 첫 인사를 보내보세요.",
+  "camera": "카메라",
+  "takePhoto": "사진 촬영",
+  "gallery": "갤러리",
+  "pickPhotosMax5": "사진 선택, 최대 5장",
+  "cameraOpenFailed": "카메라를 열 수 없어요. {error}",
+  "@cameraOpenFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "galleryOpenFailed": "갤러리를 열 수 없어요. {error}",
+  "@galleryOpenFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "photoSentCount": "사진 {count}장을 보냈어요.",
+  "@photoSentCount": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "reply": "답장하기",
+  "showTranslation": "번역 보기",
+  "retranslate": "재번역",
+  "copyOriginal": "원문 복사",
+  "copyTranslation": "번역본 복사",
+  "deleteMessage": "메시지 삭제",
+  "messageCopied": "메시지를 복사했어요.",
+  "translationCopied": "번역본을 복사했어요.",
+  "deleteMessageTitle": "메시지 삭제",
+  "deleteMessageConfirm": "이 메시지를 삭제할까요?",
+  "deleteMessageDone": "메시지를 삭제했어요.",
+  "translateServerNotConfigured": "번역 서버가 설정되지 않았어요. 실행 시 TRANSLATE_API_URL을 지정해 주세요.",
+  "translateSheetTitle": "번역 보기",
+  "originalLabel": "원문",
+  "translationLabel": "번역",
+  "translating": "번역 중...",
+  "messageSendFailed": "메시지 전송에 실패했어요. 다시 시도해 주세요.",
+  "messageHint": "메시지를 입력하세요...",
+  "saveStarted": "저장을 시작했어요. (웹: 다운로드 폴더 · 앱: 공유 메뉴)",
+  "saveFailed": "저장에 실패했어요: {error}",
+  "@saveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "closeTooltip": "닫기",
+  "downloadTooltip": "다운로드",
+  "albumNoCouple": "커플 정보가 없어요.",
+  "albumTitle": "앨범",
+  "albumAdd": "앨범 추가",
+  "albumEmptyTitle": "첫 앨범을 만들어 볼까요?",
+  "albumEmptySubtitle": "아래의 “앨범 추가” 버튼을 눌러\n추억을 저장해 보세요.",
+  "albumUntitled": "제목 없음",
+  "albumPhotoCountShort": "{count}장",
+  "@albumPhotoCountShort": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "albumEditTitle": "앨범 수정",
+  "albumAddTitle": "앨범 추가",
+  "albumMaxPhotos": "이 앨범에는 최대 50장까지 담을 수 있어요.",
+  "albumLoadImageFailed": "이미지를 불러오지 못했어요. {error}",
+  "@albumLoadImageFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "albumTitleRequired": "앨범 제목을 입력해 주세요.",
+  "albumSaveButton": "저장하기",
+  "albumTitleLabel": "앨범 제목",
+  "albumMemoLabel": "메모 (선택)",
+  "albumPhotoAddDisabled": "사진 추가 불가 (최대 50장)",
+  "albumPhotoAddRemaining": "사진 추가 (남은 {count}장)",
+  "@albumPhotoAddRemaining": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "albumPreviewHint": "사진을 선택하면 여기 미리보기가 생겨요.",
+  "albumNoPhotosHint": "아직 사진이 없어요.\n편집에서 사진을 추가해 보세요.",
+  "albumTotalPhotos": "총 {count}장",
+  "@albumTotalPhotos": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "coverLabel": "대표",
+  "photoTitle": "사진",
+  "setCoverImage": "대표 이미지로 설정",
+  "deletePhotoTitle": "사진 삭제",
+  "deletePhotoConfirm": "이 사진을 삭제할까요?",
+  "firstMeetDay": "처음만난날",
+  "myBirthday": "내 생일",
+  "partnerBirthday": "{name} 생일",
+  "@partnerBirthday": {
+    "placeholders": {
+      "name": {
+        "type": "String"
+      }
+    }
+  },
+  "eventAdd": "일정 추가",
+  "eventEdit": "일정 수정",
+  "eventDelete": "일정 삭제",
+  "eventNameHint": "일정 제목 입력",
+  "eventMemoHint": "메모(선택)",
+  "eventNameRequired": "일정 이름을 입력해 주세요.",
+  "yearlyEventNote": "매년 자동으로 표시되는 일정이에요.",
+  "changeDate": "날짜 변경",
+  "scheduleDeleteConfirm": "일정을 삭제할까요?",
+  "eventDeleted": "일정이 삭제되었어요.",
+  "calendarAddEvent": "일정 추가",
+  "calendarEmptyLine": "이 날짜에는 일정이 없어요.",
+  "calendarTogetherLine": "우리가 함께한 시간",
+  "calendarTodayLine": "오늘 · {date}",
+  "@calendarTodayLine": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
+  "weekDaySun": "일",
+  "weekDayMon": "월",
+  "weekDayTue": "화",
+  "weekDayWed": "수",
+  "weekDayThu": "목",
+  "weekDayFri": "금",
+  "weekDaySat": "토",
+  "tripTitle": "여행",
+  "tripMakeNew": "여행 만들기",
+  "tripCreateTitle": "여행 만들기",
+  "tripNameLabel": "여행 이름",
+  "tripDateHint": "날짜 선택",
+  "tripFillRequired": "여행 이름과 날짜를 모두 입력해 주세요.",
+  "tripCreateAction": "여행 생성하기",
+  "tripDeleteTitle": "여행 삭제",
+  "tripDeleteConfirm": "\"{title}\" 여행을 삭제할까요?\n(일정도 함께 사라집니다)",
+  "@tripDeleteConfirm": {
+    "placeholders": {
+      "title": {
+        "type": "String"
+      }
+    }
+  },
+  "tripEmptyTitle": "첫 여행을 만들어 볼까요?",
+  "tripEmptySubtitle": "아래의 \"+ 여행 만들기\" 버튼을 눌러\n여행 이름과 날짜만 간단히 입력하면 돼요.",
+  "tripLoadFailed": "일정을 불러오지 못했어요.\n{error}",
+  "@tripLoadFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "today": "오늘",
+  "planAdd": "+ 일정 추가",
+  "planAddFab": "일정 추가",
+  "planDeleted": "일정을 삭제했어요.",
+  "planDeleteFailed": "삭제에 실패했어요: {error}",
+  "@planDeleteFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "planAdded": "일정을 추가했어요.",
+  "planSaved": "일정을 저장했어요.",
+  "planSaveFailed": "저장에 실패했어요. Firestore 규칙·네트워크를 확인해 주세요.\n{error}",
+  "@planSaveFailed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
+  "mapPickerTitle": "지도에서 위치 선택",
+  "mapDone": "완료",
+  "mapSearchHint": "장소 검색 (예: 연세대학교, 전쟁기념관)",
+  "mapPlaceLoadFailed": "장소 정보를 불러오지 못했어요.",
+  "mapHintTap": "지도를 탭하거나 위에서 장소를 검색한 뒤 [완료]를 눌러 주세요",
+  "mapHintLoading": "주소·장소 이름을 불러오는 중…",
+  "mapHintSelected": "선택됨 · [완료]를 누르면 이 내용이 일정의 장소 이름에 들어가요",
+  "planPlaceRequired": "장소 이름을 입력하거나 지도에서 위치를 선택해 주세요.",
+  "planEditHeader": "일정 수정",
+  "planAddHeader": "일정 추가",
+  "timeSelectOptional": "시간 선택(선택)",
+  "placeNameLabel": "장소 이름",
+  "placeNameHint": "예: Osaka Castle",
+  "memoOptionalLabel": "메모 (선택)",
+  "mapPickFromMap": "지도에서 위치 선택 (선택)",
+  "mapPickedWithPlace": "지도에서 위치 선택됨 · {place}",
+  "@mapPickedWithPlace": {
+    "placeholders": {
+      "place": {
+        "type": "String"
+      }
+    }
+  },
+  "mapPickedCoordsOnly": "좌표 저장",
+  "savePlan": "저장하기",
+  "addPlan": "추가하기",
+  "deletePlan": "삭제하기",
+  "startDateScreenTitle": "처음만난날 선택",
+  "startDateQuestion": "처음만난날은 언제인가요?",
+  "startDateSubtitle": "둘이 처음 만난 특별한 날을\n기념일로 기록해 둘게요.",
+  "startDateErrorNone": "처음만난날을 선택해 주세요.",
+  "startDateErrorNoCouple": "커플 정보가 없어요. 다시 로그인해 주세요.",
+  "psNicknameQuestion": "어떻게 불러드릴까요?",
+  "psBirthdayQuestion": "생일이 언제인가요?",
+  "psLanguageQuestion": "주로 사용하는 언어는?",
+  "psLangKorean": "한국어",
+  "psLangJapanese": "일본어",
+  "psNicknameLength": "2~10자 이내로 입력해 주세요.",
+  "psBirthdayPick": "본인의 생일을 선택해 주세요.",
+  "psLanguageAccuracy": "주 언어를 선택하면 번역 기능 정확도가 올라가요.",
+  "psNicknameError": "닉네임을 2~10자로 입력해 주세요.",
+  "psBirthdaySelect": "생일을 선택해 주세요.",
+  "psAgeError": "14세 이상만 가입할 수 있어요.",
+  "psLanguageSelect": "언어를 선택해 주세요.",
+  "psInputError": "입력값을 확인해 주세요.",
+  "psConfirmError": "입력값을 다시 확인해 주세요.",
+  "psBirthdayPlaceholder": "생일 선택",
+  "psNicknameHint": "닉네임 입력",
+  "psFieldNickname": "닉네임",
+  "psFieldBirthday": "생일",
+  "psFieldLanguage": "언어",
+  "psPrevious": "이전",
+  "psNext": "다음",
+  "downloadImageFailed": "이미지를 받지 못했어요 (HTTP {code})",
+  "@downloadImageFailed": {
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "unsupportedSaveImage": "이 플랫폼에서는 이미지 저장을 지원하지 않아요.",
+  "imageSaveShareText": "이미지 저장",
+  "locationLatLng": "위치 {lat}, {lng}",
+  "@locationLatLng": {
+    "placeholders": {
+      "lat": {
+        "type": "String"
+      },
+      "lng": {
+        "type": "String"
+      }
+    }
+  },
+  "appInfoVersion": "버전 1.0.0",
+  "appInfoUpdateDate": "최신 업데이트: 2024.04.22",
+  "privacyPolicy": "개인정보처리방침",
+  "termsOfService": "이용약관",
+  "contact": "문의하기",
+  "notificationAll": "알림",
+  "notificationAllSubtitle": "앱의 모든 알림을 받습니다.",
+  "notificationMessage": "메시지 알림",
+  "notificationMessageSubtitle": "메시지를 받으면 알림을 받습니다.",
+  "notificationAnniversary": "기념일 알림",
+  "notificationAnniversarySubtitle": "기념일 알림을 받습니다.",
+  "notificationSchedule": "일정 알림",
+  "notificationScheduleSubtitle": "일정 당일 아침에 알림을 받습니다.",
+  "notificationTimeTitle": "알림 시간",
+  "timeAm": "오전",
+  "timePm": "오후",
+  "uploadTimeout": "시간이 너무 오래 걸려 중단했어요. 네트워크·CORS·사진 용량을 확인해 주세요.",
+  "uploadPermissionDenied": "권한이 없어 업로드할 수 없어요.\n• Firebase 콘솔 → Storage·Firestore 규칙이 배포됐는지\n• 내 계정 Firestore users 문서에 coupleId가 있는지\n{webCorsLine}자세한 내용: docs/firebase_storage_이미지.md",
+  "@uploadPermissionDenied": {
+    "placeholders": {
+      "webCorsLine": {
+        "type": "String"
+      }
+    }
+  },
+  "uploadLoginRequired": "로그인이 필요해요. 다시 로그인한 뒤 시도해 주세요.",
+  "uploadCanceled": "업로드가 취소되었어요.",
+  "uploadFailedWithMessage": "업로드 실패 ({code}): {message}",
+  "@uploadFailedWithMessage": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      },
+      "message": {
+        "type": "String"
+      }
+    }
+  },
+  "uploadFailedCodeOnly": "업로드 실패 ({code})",
+  "@uploadFailedCodeOnly": {
+    "placeholders": {
+      "code": {
+        "type": "String"
+      }
+    }
+  },
+  "uploadBrowserBlocked": "브라우저에서 업로드가 막혔을 수 있어요.\nFirebase Storage 버킷에 CORS를 설정해 주세요. (프로젝트 루트 storage-cors.json · docs 참고)",
+  "albumDownloadUrlTimeout": "다운로드 URL을 받는 데 시간이 초과됐어요. 네트워크를 확인해 주세요.",
+  "albumUploadTimeoutBody": "사진 업로드가 3분 안에 끝나지 않았어요.\n• Wi‑Fi/네트워크 확인\n• 웹: Storage CORS·버킷 이름(if-app-b2854.firebasestorage.app) 확인\n• 사진 용량 줄이기",
+  "translateEmpty": "번역할 텍스트가 비어 있습니다.",
+  "translateTooLong": "번역은 {max}자까지 가능해요.",
+  "@translateTooLong": {
+    "placeholders": {
+      "max": {
+        "type": "int"
+      }
+    }
+  },
+  "translateRateLimit": "요청 한도를 초과했어요. 잠시 후 다시 시도해 주세요.",
+  "translateBadRequest": "잘못된 요청이에요.",
+  "translateServerError": "번역 서버 호출 실패 ({code})",
+  "@translateServerError": {
+    "placeholders": {
+      "code": {
+        "type": "int"
+      }
+    }
+  },
+  "translateJsonError": "번역 서버 응답이 JSON이 아닙니다. (HTML/에러 페이지일 수 있음)",
+  "translateNoField": "번역 서버 응답에 translated 값이 없습니다.",
+  "profilePartnerNicknameLabel": "연인 닉네임",
+  "profileEditTitleBar": "프로필 편집",
+  "notificationTitleBar": "알림 설정",
+  "albumDetailTitleBar": "앨범",
+  "albumEditTitleBar": "앨범 수정",
+  "albumAddTitleBar": "앨범 추가",
+  "mapPickerTitleBar": "지도에서 위치 선택",
+  "photoViewerTitleBar": "사진",
+  "appInfoTitleBar": "앱 정보",
+  "webCorsBullet": "• 웹: Storage 버킷 CORS 설정 (storage-cors.json)\n"
+}

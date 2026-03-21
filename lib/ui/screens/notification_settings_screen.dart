@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/app_user.dart';
 import '../../services/user_service.dart';
 
@@ -46,10 +47,11 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     );
   }
 
-  String _timeLabel() {
+  String _timeLabel(AppLocalizations l10n) {
     final hour = _notifyTime.hourOfPeriod == 0 ? 12 : _notifyTime.hourOfPeriod;
     final minute = _notifyTime.minute.toString().padLeft(2, '0');
-    final period = _notifyTime.period == DayPeriod.am ? '오전' : '오후';
+    final period =
+        _notifyTime.period == DayPeriod.am ? l10n.timeAm : l10n.timePm;
     return '$period $hour:$minute';
   }
 
@@ -113,13 +115,14 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('알림 설정'),
+        title: Text(l10n.notificationTitleBar),
         actions: [
           TextButton(
             onPressed: _saving ? null : _save,
-            child: Text(_saving ? '저장 중...' : '완료'),
+            child: Text(_saving ? l10n.saving : l10n.done),
           ),
         ],
       ),
@@ -147,8 +150,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                   child: Column(
                     children: [
                       _NotifyRow(
-                        label: '알림',
-                        subtitle: '앱의 모든 알림을 받습니다.',
+                        label: l10n.notificationAll,
+                        subtitle: l10n.notificationAllSubtitle,
                         value: _allEnabled,
                         onChanged: (value) {
                           setState(() {
@@ -160,8 +163,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                         },
                       ),
                       _NotifyRow(
-                        label: '메시지 알림',
-                        subtitle: '메시지를 받으면 알림을 받습니다.',
+                        label: l10n.notificationMessage,
+                        subtitle: l10n.notificationMessageSubtitle,
                         value: _messageEnabled,
                         onChanged: (value) {
                           setState(() {
@@ -171,8 +174,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                         },
                       ),
                       _NotifyRow(
-                        label: '기념일 알림',
-                        subtitle: '기념일 알림을 받습니다.',
+                        label: l10n.notificationAnniversary,
+                        subtitle: l10n.notificationAnniversarySubtitle,
                         value: _anniversaryEnabled,
                         onChanged: (value) {
                           setState(() {
@@ -182,8 +185,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                         },
                       ),
                       _NotifyRow(
-                        label: '일정 알림',
-                        subtitle: '일정 당일 아침에 알림을 받습니다.',
+                        label: l10n.notificationSchedule,
+                        subtitle: l10n.notificationScheduleSubtitle,
                         value: _scheduleEnabled,
                         onChanged: (value) {
                           setState(() {
@@ -211,10 +214,10 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                       ),
                       child: Row(
                         children: [
-                          const Expanded(
+                          Expanded(
                             child: Text(
-                              '알림 시간',
-                              style: TextStyle(
+                              l10n.notificationTimeTitle,
+                              style: const TextStyle(
                                 color: Color(0xFF72607F),
                                 fontSize: 16,
                                 fontWeight: FontWeight.w600,
@@ -222,7 +225,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                             ),
                           ),
                           Text(
-                            _timeLabel(),
+                            _timeLabel(l10n),
                             style: const TextStyle(
                               color: Color(0xFF9A86A8),
                               fontSize: 16,

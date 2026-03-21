@@ -1,4 +1,4 @@
-﻿rules_version = '2';
+rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     function isSignedIn() {
@@ -97,6 +97,24 @@ service cloud.firestore {
         request.resource.data.startDate is timestamp;
 
       allow read, update, delete: if userBelongsToCouple(coupleId);
+
+      /// 여행(trips) 및 일정(plans) — TripService 경로
+      match /trips/{tripId} {
+        allow read, create, update, delete: if userBelongsToCouple(coupleId);
+
+        match /plans/{planId} {
+          allow read, create, update, delete: if userBelongsToCouple(coupleId);
+        }
+      }
+
+      /// 앨범 — AlbumService 경로
+      match /albums/{albumId} {
+        allow read, create, update, delete: if userBelongsToCouple(coupleId);
+
+        match /photos/{photoId} {
+          allow read, create, update, delete: if userBelongsToCouple(coupleId);
+        }
+      }
 
       match /messages/{messageId} {
         allow read: if userBelongsToCouple(coupleId);

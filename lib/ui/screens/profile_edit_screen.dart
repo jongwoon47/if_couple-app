@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/app_user.dart';
 import '../../services/couple_service.dart';
 import '../../services/user_service.dart';
@@ -99,13 +100,15 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final lc = Localizations.localeOf(context).languageCode;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('프로필 편집'),
+        title: Text(l10n.profileEditTitleBar),
         actions: [
           TextButton(
             onPressed: _canSave ? _save : null,
-            child: Text(_saving ? '저장 중...' : '완료'),
+            child: Text(_saving ? l10n.saving : l10n.done),
           ),
         ],
       ),
@@ -143,7 +146,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                       ),
                       const SizedBox(height: 18),
                       _LabeledField(
-                        label: '닉네임',
+                        label: l10n.psFieldNickname,
                         controller: _nicknameController,
                         maxLength: 10,
                         onChanged: (_) => setState(() => _error = null),
@@ -152,9 +155,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                         const SizedBox(height: 14),
                         Row(
                           children: [
-                            const Text(
-                              '연인 닉네임',
-                              style: TextStyle(
+                            Text(
+                              l10n.profilePartnerNicknameLabel,
+                              style: const TextStyle(
                                 color: Color(0xFF8A7998),
                                 fontSize: 14,
                                 fontWeight: FontWeight.w700,
@@ -177,9 +180,9 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                       const SizedBox(height: 14),
                       Row(
                         children: [
-                          const Text(
-                            '처음만난날',
-                            style: TextStyle(
+                          Text(
+                            l10n.firstMeetDay,
+                            style: const TextStyle(
                               color: Color(0xFF8A7998),
                               fontSize: 14,
                               fontWeight: FontWeight.w700,
@@ -199,7 +202,7 @@ class _ProfileEditScreenState extends State<ProfileEditScreen> {
                               child: Row(
                                 children: [
                                   Text(
-                                    DateFormat('yyyy.MM.dd').format(_startDate),
+                                    DateFormat.yMMMd(lc).format(_startDate),
                                     style: const TextStyle(
                                       color: Color(0xFF6E5F7A),
                                       fontWeight: FontWeight.w600,

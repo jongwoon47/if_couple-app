@@ -1,15 +1,18 @@
-import 'package:firebase_storage/firebase_storage.dart';
-import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
 
+import '../../l10n/app_localizations.dart';
+import '../../l10n/app_locale_scope.dart';
 import '../../models/app_user.dart';
 import '../../models/chat_message.dart';
 import '../../services/chat_service.dart';
+import '../../services/firebase_error_messages.dart';
 import '../../services/translation_service.dart';
+import '../widgets/fullscreen_network_image_viewer.dart';
 
 class ChatScreen extends StatefulWidget {
   const ChatScreen({super.key, required this.appUser});
@@ -26,7 +29,12 @@ class _ChatScreenState extends State<ChatScreen> {
   final Set<String> _translatingMessageIds = <String>{};
 
   bool _sending = false;
-  int _lastEntriesLength = 0;
+
+  /// 첫 로드 시 한 번 맨 아래로 (대화 화면 열었을 때)
+  bool _hasScrolledToBottomOnce = false;
+
+  /// 내가 메시지/사진 보낸 직후 스트림 반영 뒤 맨 아래로
+  bool _forceScrollAfterSend = false;
 
   /// 답장 대상 메시지 (입력창 위 미리보기용)
   ChatMessage? _replyTarget;
@@ -51,6 +59,33 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  /// 리스트가 아직 붙지 않았을 수 있어 여러 번 재시도 (웹/모바일 공통)
+  void _scrollToBottomWithRetry(int lastIndex, {int attempt = 0}) {
+    if (!mounted || lastIndex < 0) return;
+    if (!_itemScrollController.isAttached) {
+      if (attempt < 30) {
+        Future<void>.delayed(const Duration(milliseconds: 50), () {
+          _scrollToBottomWithRetry(lastIndex, attempt: attempt + 1);
+        });
+      }
+      return;
+    }
+    try {
+      _itemScrollController.scrollTo(
+        index: lastIndex,
+        duration: Duration(milliseconds: attempt == 0 ? 0 : 220),
+        curve: Curves.easeOut,
+        alignment: 1.0,
+      );
+    } catch (_) {
+      if (attempt < 30) {
+        Future<void>.delayed(const Duration(milliseconds: 50), () {
+          _scrollToBottomWithRetry(lastIndex, attempt: attempt + 1);
+        });
+      }
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -69,73 +104,76 @@ class _ChatScreenState extends State<ChatScreen> {
     showModalBottomSheet<void>(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (context) => SafeArea(
-        child: Container(
-          decoration: const BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      builder: (context) {
+        final l10n = AppLocalizations.of(context)!;
+        return SafeArea(
+          child: Container(
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const SizedBox(height: 12),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5E6EC),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.camera_alt_rounded,
+                      color: Color(0xFFE98ABF),
+                      size: 28,
+                    ),
+                  ),
+                  title: Text(
+                    l10n.camera,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+                  subtitle: Text(l10n.takePhoto),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickFromCamera();
+                  },
+                ),
+                ListTile(
+                  leading: Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF5E6EC),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: const Icon(
+                      Icons.photo_library_rounded,
+                      color: Color(0xFFE98ABF),
+                      size: 28,
+                    ),
+                  ),
+                  title: Text(
+                    l10n.gallery,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 16,
+                    ),
+                  ),
+                  subtitle: Text(l10n.pickPhotosMax5),
+                  onTap: () {
+                    Navigator.pop(context);
+                    _pickFromGallery();
+                  },
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
           ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 12),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF5E6EC),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.camera_alt_rounded,
-                    color: Color(0xFFE98ABF),
-                    size: 28,
-                  ),
-                ),
-                title: const Text(
-                  '카메라',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                ),
-                subtitle: const Text('사진 촬영'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickFromCamera();
-                },
-              ),
-              ListTile(
-                leading: Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFF5E6EC),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.photo_library_rounded,
-                    color: Color(0xFFE98ABF),
-                    size: 28,
-                  ),
-                ),
-                title: const Text(
-                  '갤러리',
-                  style: TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                ),
-                subtitle: const Text('사진 선택, 최대 5장'),
-                onTap: () {
-                  Navigator.pop(context);
-                  _pickFromGallery();
-                },
-              ),
-              const SizedBox(height: 16),
-            ],
-          ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -154,7 +192,11 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('카메라를 열 수 없어요. $e')),
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context)!.cameraOpenFailed(e.toString()),
+          ),
+        ),
       );
     }
   }
@@ -177,7 +219,11 @@ class _ChatScreenState extends State<ChatScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('갤러리를 열 수 없어요. $e')),
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context)!.galleryOpenFailed(e.toString()),
+          ),
+        ),
       );
     }
   }
@@ -207,8 +253,17 @@ class _ChatScreenState extends State<ChatScreen> {
         text: '',
         imageUrls: urls,
       );
+      if (!mounted) return;
+      setState(() => _forceScrollAfterSend = true);
+      Future<void>.delayed(const Duration(milliseconds: 900), () {
+        if (mounted) setState(() => _forceScrollAfterSend = false);
+      });
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('사진 ${urls.length}장을 보냈어요.')),
+        SnackBar(
+          content: Text(
+            AppLocalizations.of(context)!.photoSentCount(urls.length),
+          ),
+        ),
       );
     } catch (e, st) {
       if (kDebugMode) {
@@ -218,9 +273,11 @@ class _ChatScreenState extends State<ChatScreen> {
         print('[ChatScreen] 스택: $st');
       }
       if (!mounted) return;
-      final msg = _imageErrorMessage(e);
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(msg), duration: const Duration(seconds: 5)),
+        SnackBar(
+          content: Text(messageForUploadFailure(e, AppLocalizations.of(context)!)),
+          duration: const Duration(seconds: 8),
+        ),
       );
     } finally {
       if (mounted) {
@@ -236,32 +293,6 @@ class _ChatScreenState extends State<ChatScreen> {
       return ext;
     }
     return 'jpg';
-  }
-
-  String _imageErrorMessage(Object error) {
-    if (error is FirebaseException) {
-      switch (error.code) {
-        case 'unauthenticated':
-          return '로그인이 필요해요. 다시 로그인해 주세요.';
-        case 'permission-denied':
-          return '저장소 권한이 없어요. Firebase Storage 규칙을 확인해 주세요.';
-        case 'canceled':
-          return '업로드가 취소되었어요.';
-        default:
-          break;
-      }
-      final m = (error.message ?? error.code).trim();
-      if (m.isNotEmpty && m.length < 120) {
-        final suffix = kIsWeb
-            ? '\n\n(웹에서는 Storage CORS 설정이 필요할 수 있어요.)'
-            : '';
-        return '이미지 전송에 실패했어요. $m$suffix';
-      }
-    }
-    final suffix = kIsWeb
-        ? '\n\n웹: Firebase 콘솔 → Storage → CORS 설정을 확인해 주세요.'
-        : '';
-    return '이미지 전송에 실패했어요. 다시 시도해 주세요.$suffix';
   }
 
   Future<void> _send() async {
@@ -281,8 +312,14 @@ class _ChatScreenState extends State<ChatScreen> {
         replyToText: _replyTarget?.messageText,
       );
       _controller.clear();
+      if (!mounted) return;
       setState(() {
         _replyTarget = null;
+        _forceScrollAfterSend = true;
+      });
+      // Firestore 반영이 늦어도 맨 아래로 오도록 잠시 동안 스크롤 유지
+      Future<void>.delayed(const Duration(milliseconds: 900), () {
+        if (mounted) setState(() => _forceScrollAfterSend = false);
       });
     } catch (e) {
       if (!mounted) return;
@@ -304,7 +341,7 @@ class _ChatScreenState extends State<ChatScreen> {
       }
     }
     if (message.isEmpty) {
-      return '메시지 전송에 실패했어요. 다시 시도해 주세요.';
+      return AppLocaleController.l10n.messageSendFailed;
     }
     return message;
   }
@@ -314,7 +351,6 @@ class _ChatScreenState extends State<ChatScreen> {
   List<_ChatListEntry> _buildChatEntries(
     List<ChatMessage> messages,
     String currentUserId,
-    DateTime? partnerLastReadAt,
   ) {
     final entries = <_ChatListEntry>[];
     final now = DateTime.now();
@@ -377,6 +413,7 @@ class _ChatScreenState extends State<ChatScreen> {
       context: context,
       showDragHandle: true,
       builder: (context) {
+        final l10n = AppLocalizations.of(context)!;
         return SafeArea(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -415,36 +452,42 @@ class _ChatScreenState extends State<ChatScreen> {
               const Divider(height: 1),
               ListTile(
                 leading: const Icon(Icons.reply_rounded),
-                title: const Text('답장하기'),
+                title: Text(l10n.reply),
                 onTap: () => Navigator.of(context).pop(_MessageAction.reply),
               ),
               ListTile(
                 leading: const Icon(Icons.translate_rounded),
-                title: const Text('번역 보기'),
+                title: Text(l10n.showTranslation),
                 onTap: () =>
                     Navigator.of(context).pop(_MessageAction.viewTranslation),
               ),
               ListTile(
                 leading: const Icon(Icons.refresh_rounded),
-                title: const Text('재번역'),
+                title: Text(l10n.retranslate),
                 onTap: () =>
                     Navigator.of(context).pop(_MessageAction.retranslate),
               ),
               ListTile(
                 leading: const Icon(Icons.copy_rounded),
-                title: const Text('원문 복사'),
+                title: Text(l10n.copyOriginal),
                 onTap: () =>
                     Navigator.of(context).pop(_MessageAction.copyOriginal),
               ),
               ListTile(
                 leading: const Icon(Icons.content_copy_rounded),
-                title: const Text('번역본 복사'),
+                title: Text(l10n.copyTranslation),
                 onTap: () =>
                     Navigator.of(context).pop(_MessageAction.copyTranslation),
               ),
               ListTile(
                 leading: const Icon(Icons.delete_outline_rounded),
-                title: const Text('메시지 삭제', style: TextStyle(color: Color(0xFFB55C80), fontWeight: FontWeight.w600)),
+                title: Text(
+                  l10n.deleteMessage,
+                  style: const TextStyle(
+                    color: Color(0xFFB55C80),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
                 onTap: () =>
                     Navigator.of(context).pop(_MessageAction.deleteMessage),
               ),
@@ -482,7 +525,7 @@ class _ChatScreenState extends State<ChatScreen> {
         await Clipboard.setData(ClipboardData(text: message.messageText));
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('메시지를 복사했어요.')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.messageCopied)),
         );
         break;
       case _MessageAction.copyTranslation:
@@ -490,7 +533,7 @@ class _ChatScreenState extends State<ChatScreen> {
         await Clipboard.setData(ClipboardData(text: toCopy));
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('번역본을 복사했어요.')),
+          SnackBar(content: Text(AppLocalizations.of(context)!.translationCopied)),
         );
         break;
       case _MessageAction.deleteMessage:
@@ -502,19 +545,20 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   Future<void> _confirmDeleteMessage(ChatMessage message) async {
+    final l10n = AppLocalizations.of(context)!;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('메시지 삭제'),
-        content: const Text('이 메시지를 삭제할까요?'),
+        title: Text(l10n.deleteMessageTitle),
+        content: Text(l10n.deleteMessageConfirm),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('취소'),
+            child: Text(l10n.cancel),
           ),
           TextButton(
             onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('삭제', style: TextStyle(color: Color(0xFFB55C80))),
+            child: Text(l10n.delete, style: const TextStyle(color: Color(0xFFB55C80))),
           ),
         ],
       ),
@@ -527,7 +571,7 @@ class _ChatScreenState extends State<ChatScreen> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('메시지를 삭제했어요.')),
+        SnackBar(content: Text(AppLocalizations.of(context)!.deleteMessageDone)),
       );
     } catch (e) {
       if (!mounted) return;
@@ -552,10 +596,8 @@ class _ChatScreenState extends State<ChatScreen> {
     if (!TranslationService.isConfigured) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            '번역 서버가 설정되지 않았어요. 실행 시 TRANSLATE_API_URL을 지정해 주세요.',
-          ),
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.translateServerNotConfigured),
         ),
       );
       return;
@@ -598,22 +640,23 @@ class _ChatScreenState extends State<ChatScreen> {
     return showDialog<void>(
       context: context,
       builder: (context) {
+        final l10n = AppLocalizations.of(context)!;
         return AlertDialog(
-          title: const Text('번역 보기'),
+          title: Text(l10n.translateSheetTitle),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
-                '원문',
-                style: TextStyle(fontWeight: FontWeight.w700),
+              Text(
+                l10n.originalLabel,
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
               Text(original),
               const SizedBox(height: 14),
-              const Text(
-                '번역',
-                style: TextStyle(fontWeight: FontWeight.w700),
+              Text(
+                l10n.translationLabel,
+                style: const TextStyle(fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
               Text(translated),
@@ -622,7 +665,7 @@ class _ChatScreenState extends State<ChatScreen> {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(context).pop(),
-              child: const Text('닫기'),
+              child: Text(l10n.close),
             ),
           ],
         );
@@ -632,9 +675,10 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('대화'),
+        title: Text(l10n.chatTitle),
         backgroundColor: const Color(0xFFF7E9F8),
         elevation: 0,
       ),
@@ -650,87 +694,77 @@ class _ChatScreenState extends State<ChatScreen> {
         child: Column(
           children: [
             Expanded(
-              child: StreamBuilder<DateTime?>(
-                stream: ChatService.partnerLastReadAtStream(
-                widget.appUser.coupleId!,
-                widget.appUser.userId,
-                ),
-                builder: (context, readSnap) {
-                final partnerLastReadAt = readSnap.data;
-                return StreamBuilder<List<ChatMessage>>(
-                  stream: ChatService.messageStream(widget.appUser.coupleId!),
-                  builder: (context, snapshot) {
-                    if (!snapshot.hasData) {
-                      return const Center(child: CircularProgressIndicator());
-                    }
+              child: StreamBuilder<List<ChatMessage>>(
+                stream: ChatService.messageStream(widget.appUser.coupleId!),
+                builder: (context, snapshot) {
+                  if (!snapshot.hasData) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-                    final messages = snapshot.data!;
-                    if (messages.isEmpty) {
-                      return const Center(
-                        child: Text('아직 메시지가 없어요. 첫 인사를 보내보세요.'),
-                      );
-                    }
-
-                    final entries = _buildChatEntries(
-                      messages,
-                      widget.appUser.userId,
-                      partnerLastReadAt,
+                  final messages = snapshot.data!;
+                  if (messages.isEmpty) {
+                    return Center(
+                      child: Text(l10n.chatEmpty),
                     );
-                    _messageIdToIndex.clear();
-                    for (var i = 0; i < entries.length; i++) {
-                      final e = entries[i];
-                      if (e.message != null) {
-                        _messageIdToIndex[e.message!.messageId] = i;
+                  }
+
+                  final entries = _buildChatEntries(
+                    messages,
+                    widget.appUser.userId,
+                  );
+                  _messageIdToIndex.clear();
+                  for (var i = 0; i < entries.length; i++) {
+                    final e = entries[i];
+                    if (e.message != null) {
+                      _messageIdToIndex[e.message!.messageId] = i;
+                    }
+                  }
+                  final effectiveTranslatedText = _effectiveTranslatedText;
+                  final translatingIds = _translatingMessageIds;
+
+                  // 맨 아래: (1) 처음 입장 (2) 내가 방금 보낸 직후(_forceScrollAfterSend, ~0.9초)
+                  // 예전 _scrollToBottomScheduled 는 첫 프레임만 스크롤돼 Firestore 반영 전에 끊겼음.
+                  final scrollToBottomNow = entries.isNotEmpty &&
+                      (!_hasScrolledToBottomOnce || _forceScrollAfterSend);
+                  if (scrollToBottomNow) {
+                    final lastIndex = entries.length - 1;
+                    final markFirstDone = !_hasScrolledToBottomOnce;
+                    WidgetsBinding.instance.addPostFrameCallback((_) {
+                      if (!mounted) return;
+                      _scrollToBottomWithRetry(lastIndex);
+                      if (markFirstDone) {
+                        setState(() => _hasScrolledToBottomOnce = true);
                       }
-                    }
-                    final effectiveTranslatedText = _effectiveTranslatedText;
-                    final translatingIds = _translatingMessageIds;
+                    });
+                  }
 
-                    if (entries.length != _lastEntriesLength && entries.isNotEmpty) {
-                      _lastEntriesLength = entries.length;
-                      WidgetsBinding.instance.addPostFrameCallback((_) {
-                        if (!mounted || !_itemScrollController.isAttached) return;
-                        final lastIndex = entries.length - 1;
-                        if (lastIndex >= 0) {
-                          _itemScrollController.scrollTo(
-                            index: lastIndex,
-                            duration: const Duration(milliseconds: 300),
-                            curve: Curves.easeOut,
-                            alignment: 1.0,
-                          );
-                        }
-                      });
-                    }
-
-                    return ScrollablePositionedList.builder(
-                      itemScrollController: _itemScrollController,
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      itemCount: entries.length,
-                      initialScrollIndex: entries.isEmpty ? 0 : entries.length - 1,
-                      initialAlignment: 1.0,
-                      itemBuilder: (context, index) {
-                        final entry = entries[index];
-                        if (entry.isDateSeparator) {
-                          return _DateSeparator(date: entry.date!);
-                        }
-                        final msg = entry.message!;
-                        final mine = msg.senderId == widget.appUser.userId;
-                        return _MessageBubble(
-                          message: msg,
-                          mine: mine,
-                          translatedText: effectiveTranslatedText(msg),
-                          isTranslating: translatingIds.contains(msg.messageId),
-                          reaction: _localReactions[msg.messageId],
-                          onLongPress: () => _openMessageActions(msg),
-                          onReplyTap: _scrollToRepliedMessage,
-                        );
-                      },
-                    );
-                  },
-                );
-              },
+                  return ScrollablePositionedList.builder(
+                    itemScrollController: _itemScrollController,
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    itemCount: entries.length,
+                    initialScrollIndex: entries.isEmpty ? 0 : entries.length - 1,
+                    initialAlignment: 1.0,
+                    itemBuilder: (context, index) {
+                      final entry = entries[index];
+                      if (entry.isDateSeparator) {
+                        return _DateSeparator(date: entry.date!);
+                      }
+                      final msg = entry.message!;
+                      final mine = msg.senderId == widget.appUser.userId;
+                      return _MessageBubble(
+                        message: msg,
+                        mine: mine,
+                        translatedText: effectiveTranslatedText(msg),
+                        isTranslating: translatingIds.contains(msg.messageId),
+                        reaction: _localReactions[msg.messageId],
+                        onLongPress: () => _openMessageActions(msg),
+                        onReplyTap: _scrollToRepliedMessage,
+                      );
+                    },
+                  );
+                },
+              ),
             ),
-          ),
           SafeArea(
             top: false,
             child: Padding(
@@ -798,8 +832,8 @@ class _ChatScreenState extends State<ChatScreen> {
                           enabled: !_sending,
                           textInputAction: TextInputAction.send,
                           onSubmitted: (_) => _send(),
-                          decoration: const InputDecoration(
-                            hintText: '메시지를 입력하세요...',
+                          decoration: InputDecoration(
+                            hintText: l10n.messageHint,
                           ),
                           maxLines: 3,
                           minLines: 1,
@@ -853,7 +887,8 @@ class _DateSeparator extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final text = DateFormat('y년 M월 d일').format(date);
+    final lang = Localizations.localeOf(context).languageCode;
+    final text = DateFormat.yMMMd(lang).format(date);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 12),
       child: Center(
@@ -870,14 +905,13 @@ class _DateSeparator extends StatelessWidget {
   }
 }
 
-/// 메시지 시간만 표시 (오전 8:16 형식)
-String _formatMessageTime(DateTime date) {
-  final h = date.hour;
-  final m = date.minute;
-  final isPm = h >= 12;
-  final hour12 = h == 0 ? 12 : (h > 12 ? h - 12 : h);
-  final ampm = isPm ? '오후' : '오전';
-  return '$ampm $hour12:${m.toString().padLeft(2, '0')}';
+/// 메시지 시간 (로케일에 맞는 오전/오후·표기)
+String _formatMessageTime(BuildContext context, DateTime date) {
+  final tod = TimeOfDay.fromDateTime(date);
+  return MaterialLocalizations.of(context).formatTimeOfDay(
+    tod,
+    alwaysUse24HourFormat: MediaQuery.alwaysUse24HourFormatOf(context),
+  );
 }
 
 class _ReactionChip extends StatelessWidget {
@@ -903,6 +937,132 @@ class _ReactionChip extends StatelessWidget {
   }
 }
 
+/// 원본 비율·크기에 맞춤(최대 가로 280 / 세로 520, 작은 이미지는 확대 안 함). 고정 큰 박스 없이 빈 여백 최소화.
+class _ChatNetworkImageFitted extends StatefulWidget {
+  const _ChatNetworkImageFitted({required this.url});
+
+  final String url;
+
+  static const double maxW = 280;
+  static const double maxH = 520;
+
+  @override
+  State<_ChatNetworkImageFitted> createState() => _ChatNetworkImageFittedState();
+}
+
+class _ChatNetworkImageFittedState extends State<_ChatNetworkImageFitted> {
+  double? _w;
+  double? _h;
+  ImageStream? _imageStream;
+  ImageStreamListener? _listener;
+
+  @override
+  void initState() {
+    super.initState();
+    _listenImageSize();
+  }
+
+  @override
+  void didUpdateWidget(_ChatNetworkImageFitted oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.url != widget.url) {
+      _detachListener();
+      setState(() {
+        _w = null;
+        _h = null;
+      });
+      _listenImageSize();
+    }
+  }
+
+  void _detachListener() {
+    final s = _imageStream;
+    final l = _listener;
+    if (s != null && l != null) {
+      s.removeListener(l);
+    }
+    _imageStream = null;
+    _listener = null;
+  }
+
+  @override
+  void dispose() {
+    _detachListener();
+    super.dispose();
+  }
+
+  void _listenImageSize() {
+    final provider = NetworkImage(widget.url);
+    final stream = provider.resolve(const ImageConfiguration());
+    _imageStream = stream;
+    _listener = ImageStreamListener(
+      (ImageInfo info, bool _) {
+        final iw = info.image.width.toDouble();
+        final ih = info.image.height.toDouble();
+        _detachListener();
+        if (iw <= 0 || ih <= 0) {
+          if (!mounted) return;
+          setState(() {
+            _w = _ChatNetworkImageFitted.maxW;
+            _h = 120;
+          });
+          return;
+        }
+        var scale = (_ChatNetworkImageFitted.maxW / iw).clamp(0.0, double.infinity);
+        final sh = _ChatNetworkImageFitted.maxH / ih;
+        if (sh < scale) scale = sh;
+        if (scale > 1) scale = 1;
+        if (!mounted) return;
+        setState(() {
+          _w = iw * scale;
+          _h = ih * scale;
+        });
+      },
+      onError: (_, __) {
+        _detachListener();
+        if (!mounted) return;
+        setState(() {
+          _w = _ChatNetworkImageFitted.maxW;
+          _h = 120;
+        });
+      },
+    );
+    stream.addListener(_listener!);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_w == null || _h == null) {
+      return SizedBox(
+        width: _ChatNetworkImageFitted.maxW,
+        height: 120,
+        child: const Center(
+          child: SizedBox(
+            width: 32,
+            height: 32,
+            child: CircularProgressIndicator(strokeWidth: 2),
+          ),
+        ),
+      );
+    }
+    return Image.network(
+      widget.url,
+      width: _w,
+      height: _h,
+      fit: BoxFit.contain,
+      alignment: Alignment.center,
+      filterQuality: FilterQuality.medium,
+      errorBuilder: (_, __, ___) => SizedBox(
+        width: _ChatNetworkImageFitted.maxW,
+        height: 120,
+        child: const Center(
+          child: Icon(Icons.broken_image_outlined, size: 48, color: Colors.grey),
+        ),
+      ),
+    );
+  }
+}
+
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
     required this.message,
@@ -922,12 +1082,75 @@ class _MessageBubble extends StatelessWidget {
   final VoidCallback onLongPress;
   final void Function(String? messageId)? onReplyTap;
 
+  static const double _kChatImageMaxWidth = 280;
+
   @override
   Widget build(BuildContext context) {
     final translated = translatedText?.trim();
     final hasTranslated = translated != null && translated.isNotEmpty && translated != message.messageText;
     final hasReply = message.replyToText != null &&
         message.replyToText!.trim().isNotEmpty;
+    final imageUrls = message.imageUrls ?? const <String>[];
+    final hasImages = imageUrls.isNotEmpty;
+    final hasText = message.messageText.trim().isNotEmpty;
+    // 사진만 보낸 메시지: 말풍선 없이 원본 비율 그대로
+    final isImageOnly = hasImages && !hasText && !hasReply;
+
+    Widget timeRow() => Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            Text(
+              _formatMessageTime(context, message.createdAt),
+              style: const TextStyle(fontSize: 11, color: Colors.grey),
+            ),
+            if (reaction != null && reaction!.isNotEmpty) ...[
+              const SizedBox(width: 6),
+              Text(reaction!, style: const TextStyle(fontSize: 14)),
+            ],
+          ],
+        );
+
+    final imageColumn = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: imageUrls
+          .map(
+            (url) => Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => FullscreenNetworkImageViewer.show(context, url),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(isImageOnly ? 12 : 8),
+                  child: _ChatNetworkImageFitted(url: url),
+                ),
+              ),
+            ),
+          )
+          .toList(),
+    );
+
+    if (isImageOnly) {
+      return Align(
+        alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+        child: GestureDetector(
+          onLongPress: onLongPress,
+          child: Container(
+            margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+            constraints: const BoxConstraints(maxWidth: _kChatImageMaxWidth),
+            child: Column(
+              crossAxisAlignment:
+                  mine ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+              children: [
+                imageColumn,
+                const SizedBox(height: 4),
+                timeRow(),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Align(
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
@@ -936,7 +1159,7 @@ class _MessageBubble extends StatelessWidget {
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-          constraints: const BoxConstraints(maxWidth: 280),
+          constraints: const BoxConstraints(maxWidth: _kChatImageMaxWidth),
           decoration: BoxDecoration(
             color: mine
                 ? const Color(0xFFFFC9E0)
@@ -994,38 +1217,11 @@ class _MessageBubble extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
               ],
-              if (message.imageUrls != null && message.imageUrls!.isNotEmpty) ...[
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: message.imageUrls!
-                        .map((url) => Padding(
-                              padding: const EdgeInsets.only(bottom: 4),
-                              child: Image.network(
-                                url,
-                                fit: BoxFit.cover,
-                                width: 280,
-                                height: 200,
-                                errorBuilder: (_, __, ___) => const SizedBox(
-                                  width: 280,
-                                  height: 120,
-                                  child: Center(
-                                    child: Icon(
-                                      Icons.broken_image_outlined,
-                                      size: 48,
-                                      color: Colors.grey,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ))
-                        .toList(),
-                  ),
-                ),
-                if (message.messageText.isNotEmpty) const SizedBox(height: 6),
+              if (hasImages) ...[
+                imageColumn,
+                if (hasText) const SizedBox(height: 6),
               ],
-              if (message.messageText.isNotEmpty) Text(message.messageText),
+              if (hasText) Text(message.messageText),
               if (hasTranslated) ...[
                 const SizedBox(height: 6),
                 Container(
@@ -1047,9 +1243,9 @@ class _MessageBubble extends StatelessWidget {
               ],
               if (isTranslating) ...[
                 const SizedBox(height: 6),
-                const Text(
-                  '번역 중...',
-                  style: TextStyle(
+                Text(
+                  AppLocalizations.of(context)!.translating,
+                  style: const TextStyle(
                     fontSize: 12,
                     color: Color(0xFF8E8395),
                     fontWeight: FontWeight.w600,
@@ -1057,20 +1253,7 @@ class _MessageBubble extends StatelessWidget {
                 ),
               ],
               const SizedBox(height: 4),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  Text(
-                    _formatMessageTime(message.createdAt),
-                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                  ),
-                  if (reaction != null && reaction!.isNotEmpty) ...[
-                    const SizedBox(width: 6),
-                    Text(reaction!, style: const TextStyle(fontSize: 14)),
-                  ],
-                ],
-              ),
+              timeRow(),
             ],
           ),
         ),

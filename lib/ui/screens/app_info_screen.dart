@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
+
 class AppInfoScreen extends StatelessWidget {
   const AppInfoScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('앱 정보'),
+        title: Text(l10n.appInfoTitleBar),
       ),
       body: Container(
         decoration: const BoxDecoration(
@@ -33,18 +36,18 @@ class AppInfoScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 4),
-                const Text(
-                  '버전 1.0.0',
-                  style: TextStyle(
+                Text(
+                  l10n.appInfoVersion,
+                  style: const TextStyle(
                     color: Color(0xFF7F708D),
                     fontSize: 24,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 8),
-                const Text(
-                  '최신 업데이트: 2024.04.22',
-                  style: TextStyle(
+                Text(
+                  l10n.appInfoUpdateDate,
+                  style: const TextStyle(
                     color: Color(0xFFA194AF),
                     fontSize: 14,
                     fontWeight: FontWeight.w500,
@@ -52,17 +55,17 @@ class AppInfoScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 28),
                 _InfoTile(
-                  label: '개인정보처리방침',
+                  label: l10n.privacyPolicy,
                   onTap: () {},
                 ),
                 const SizedBox(height: 10),
                 _InfoTile(
-                  label: '이용약관',
+                  label: l10n.termsOfService,
                   onTap: () {},
                 ),
                 const SizedBox(height: 10),
                 _InfoTile(
-                  label: '문의하기',
+                  label: l10n.contact,
                   onTap: () {},
                 ),
               ],

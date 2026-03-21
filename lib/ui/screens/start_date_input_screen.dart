@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/app_user.dart';
 import '../../services/couple_service.dart';
 
@@ -41,9 +42,10 @@ class _StartDateInputScreenState extends State<StartDateInputScreen> {
 
   Future<void> _save() async {
     if (_saving) return;
+    final l10n = AppLocalizations.of(context)!;
     if (_startDate == null) {
       setState(() {
-        _error = '처음만난날을 선택해 주세요.';
+        _error = l10n.startDateErrorNone;
       });
       return;
     }
@@ -51,7 +53,7 @@ class _StartDateInputScreenState extends State<StartDateInputScreen> {
     final coupleId = widget.appUser.coupleId;
     if (coupleId == null || coupleId.isEmpty) {
       setState(() {
-        _error = '커플 정보가 없어요. 다시 로그인해 주세요.';
+        _error = l10n.startDateErrorNoCouple;
       });
       return;
     }
@@ -68,8 +70,9 @@ class _StartDateInputScreenState extends State<StartDateInputScreen> {
         currentUserId: widget.appUser.userId,
       );
 
+      // AppGate의 userStream이 users/{uid}.startDate 반영 후
+      // 둘 다 HomeScreen으로 전환됨. (이 화면은 루트라 Navigator.pop 금지)
       if (!mounted) return;
-      Navigator.of(context).pop();
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -86,9 +89,11 @@ class _StartDateInputScreenState extends State<StartDateInputScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
+    final lc = Localizations.localeOf(context).languageCode;
     final text = _startDate == null
-        ? '처음만난날 선택'
-        : DateFormat('yyyy.MM.dd').format(_startDate!);
+        ? l10n.startDateScreenTitle
+        : DateFormat.yMMMd(lc).format(_startDate!);
 
     final canSave = _startDate != null && !_saving;
 
@@ -113,61 +118,69 @@ class _StartDateInputScreenState extends State<StartDateInputScreen> {
                     const SizedBox(height: 30),
                     const _IfWordmark(),
                     const SizedBox(height: 32),
-                    const Text(
-                      '처음만난날은 언제인가요?',
+                    Text(
+                      l10n.startDateQuestion,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Color(0xFF6A6071),
                         fontSize: 30,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 18),
-                    const Text(
-                      '둘이 처음 만난 특별한 날을\n기념일로 기록해 둘게요.',
+                    Text(
+                      l10n.startDateSubtitle,
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: const TextStyle(
                         color: Color(0xFF9A8EA8),
                         fontSize: 16,
                         height: 1.4,
                       ),
                     ),
                     const SizedBox(height: 32),
-                    InkWell(
-                      onTap: _pickDate,
-                      borderRadius: BorderRadius.circular(18),
-                      child: Ink(
-                        height: 56,
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFF8F1FB),
-                          borderRadius: BorderRadius.circular(18),
-              border: Border.all(
-                color: const Color(0xFF6A6071),
-                width: 1.5,
-              ),
-                        ),
-                        padding: const EdgeInsets.symmetric(horizontal: 16),
-                        child: Row(
-                          children: [
-                            const Icon(
-                              Icons.calendar_today_rounded,
-                              size: 18,
-                              color: Color(0xFF9C8CA8),
+                    // 프로필 설정(생일)과 동일: 연한 회색 테두리
+                    Material(
+                      color: Colors.transparent,
+                      child: InkWell(
+                        onTap: _pickDate,
+                        borderRadius: BorderRadius.circular(18),
+                        child: Ink(
+                          height: 56,
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFDFBFE),
+                            borderRadius: BorderRadius.circular(18),
+                            border: Border.all(
+                              color: const Color(0xFFD8D4DE),
+                              width: 1.2,
                             ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                text,
-                                style: TextStyle(
-                                  color: _startDate == null
-                                      ? const Color(0xFFB3A4C0)
-                                      : const Color(0xFF5C516A),
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+                          ),
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.calendar_today_rounded,
+                                size: 18,
+                                color: Color(0xFF9C8CA8),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: Text(
+                                  text,
+                                  style: TextStyle(
+                                    color: _startDate == null
+                                        ? const Color(0xFFB3A4C0)
+                                        : const Color(0xFF5C516A),
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
                               ),
-                            ),
-                          ],
+                              const Icon(
+                                Icons.chevron_right,
+                                color: Color(0xFFA796B3),
+                              ),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -185,7 +198,7 @@ class _StartDateInputScreenState extends State<StartDateInputScreen> {
                     ],
                     const Spacer(),
                     _PrimaryButton(
-                      label: _saving ? '저장 중...' : '완료',
+                      label: _saving ? l10n.saving : l10n.done,
                       enabled: canSave,
                       onTap: _save,
                     ),

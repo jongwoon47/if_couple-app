@@ -11,6 +11,12 @@ class AppConfig {
     defaultValue: 'Translate Korean to Japanese naturally for couples.',
   );
 
+  /// Google Maps Geocoding(역지오코딩)용. 웹·동일 키로 빌드 시:
+  /// `flutter run --dart-define=GOOGLE_MAPS_API_KEY=...`
+  static const String googleMapsApiKey =
+      String.fromEnvironment('GOOGLE_MAPS_API_KEY', defaultValue: '');
+
   static bool get hasAuthApiBaseUrl => authApiBaseUrl.trim().isNotEmpty;
   static bool get hasTranslateApiUrl => translateApiUrl.trim().isNotEmpty;
+  static bool get hasGoogleMapsApiKey => googleMapsApiKey.trim().isNotEmpty;
 }

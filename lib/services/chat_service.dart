@@ -5,11 +5,12 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 
 import '../models/chat_message.dart';
+import 'app_firebase_storage.dart';
 import 'translation_service.dart';
 
 class ChatService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  static final FirebaseStorage _storage = FirebaseStorage.instance;
+  static FirebaseStorage get _storage => getAppFirebaseStorage();
 
   static CollectionReference<Map<String, dynamic>> _messagesRef(String coupleId) {
     return _firestore.collection('couples').doc(coupleId).collection('messages');
@@ -23,32 +24,6 @@ class ChatService {
     await _users.doc(userId).set({
       'lastReadChatAt': FieldValue.serverTimestamp(),
     }, SetOptions(merge: true));
-  }
-
-  /// 상대방의 마지막 채팅 읽은 시각 스트림 (읽음 표시용)
-  static Stream<DateTime?> partnerLastReadAtStream(
-    String coupleId,
-    String currentUserId,
-  ) {
-    return _firestore
-        .collection('couples')
-        .doc(coupleId)
-        .snapshots()
-        .asyncExpand((coupleSnap) {
-      final data = coupleSnap.data();
-      if (data == null) return Stream<DateTime?>.value(null);
-      final users = (data['users'] as List<dynamic>?) ?? [];
-      final user1 = (data['user1Id'] ?? '') as String;
-      final user2 = (data['user2Id'] ?? '') as String;
-      final partnerId = user1 == currentUserId
-          ? (user2.isNotEmpty ? user2 : (users.length >= 2 ? users[1].toString() : ''))
-          : (user1.isNotEmpty ? user1 : (users.isNotEmpty ? users[0].toString() : ''));
-      if (partnerId.isEmpty) return Stream<DateTime?>.value(null);
-      return _users.doc(partnerId).snapshots().map((doc) {
-        final t = doc.data()?['lastReadChatAt'];
-        return t != null ? (t as Timestamp).toDate() : null;
-      });
-    });
   }
 
   /// 안 읽은 메시지 개수 스트림 (상대가 보낸 메시지 중 내가 아직 읽지 않은 것)

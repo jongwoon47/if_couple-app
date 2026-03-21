@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../l10n/app_localizations.dart';
+import '../../l10n/app_locale_scope.dart';
 import '../../models/login_provider.dart';
 import '../../services/auth_service.dart';
 
@@ -29,7 +31,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _notices = _mapErrorToNotices(e.toString());
+        _notices = _mapErrorToNotices(e.toString(), AppLocaleController.l10n);
       });
     }
   }
@@ -57,7 +59,7 @@ class _LoginScreenState extends State<LoginScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _notices = _mapErrorToNotices(e.toString());
+        _notices = _mapErrorToNotices(e.toString(), AppLocaleController.l10n);
       });
     } finally {
       if (mounted) {
@@ -68,15 +70,15 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
-  List<_LoginNotice> _mapErrorToNotices(String raw) {
+  List<_LoginNotice> _mapErrorToNotices(String raw, AppLocalizations l10n) {
     final message = raw.toLowerCase();
     final notices = <_LoginNotice>[];
 
     if (message.contains('auth_api_base_url')) {
       notices.add(
-        const _LoginNotice(
+        _LoginNotice(
           icon: Icons.settings,
-          text: '서버 주소가 설정되지 않았어요.\n--dart-define=AUTH_API_BASE_URL 값을 넣어 주세요.',
+          text: l10n.loginServerNotConfigured,
         ),
       );
       return notices;
@@ -86,36 +88,36 @@ class _LoginScreenState extends State<LoginScreen> {
         message.contains('socket') ||
         message.contains('timed out')) {
       notices.add(
-        const _LoginNotice(
+        _LoginNotice(
           icon: Icons.wifi_off,
-          text: '네트워크가 불안정해요.\n잠시 후 다시 시도해 주세요.',
+          text: l10n.loginNetworkUnstable,
         ),
       );
     }
 
     if (message.contains('oauth failed') || message.contains('oauth exchange')) {
       notices.add(
-        const _LoginNotice(
+        _LoginNotice(
           icon: Icons.gpp_bad,
-          text: '소셜 로그인 인증에 실패했어요.\n다시 시도해 주세요.',
+          text: l10n.loginOAuthFailed,
         ),
       );
     }
 
     if (message.contains('account-exists-with-different-credential')) {
       notices.add(
-        const _LoginNotice(
+        _LoginNotice(
           icon: Icons.person,
-          text: '이미 가입된 계정이에요.\n기존 로그인 방식으로 시도해 주세요.',
+          text: l10n.loginAccountExists,
         ),
       );
     }
 
     if (notices.isEmpty) {
       notices.add(
-        const _LoginNotice(
+        _LoginNotice(
           icon: Icons.error_outline,
-          text: '로그인에 실패했어요.\n다시 한 번 시도해 주세요.',
+          text: l10n.loginFailed,
         ),
       );
     }
@@ -125,6 +127,7 @@ class _LoginScreenState extends State<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -170,9 +173,9 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      const Text(
-                        '서로의 언어를 이어주는 공간',
-                        style: TextStyle(
+                      Text(
+                        l10n.loginTagline,
+                        style: const TextStyle(
                           color: Color(0xFF6A6071),
                           fontSize: 16,
                           fontWeight: FontWeight.w500,
@@ -280,7 +283,7 @@ class _KakaoFallback extends StatelessWidget {
           width: double.infinity,
           height: 52,
           alignment: Alignment.center,
-          child: const Text('카카오 로그인', style: TextStyle(color: Color(0xFF191919), fontSize: 18, fontWeight: FontWeight.w700)),
+          child: Text(AppLocalizations.of(context)!.loginKakao, style: const TextStyle(color: Color(0xFF191919), fontSize: 18, fontWeight: FontWeight.w700)),
         ),
       ),
     );
@@ -322,8 +325,8 @@ class _LineLoginButton extends StatelessWidget {
                 ),
               ),
               Container(width: 1, height: 24, margin: const EdgeInsets.symmetric(horizontal: 12), color: const Color(0x14000000)),
-              const Expanded(
-                child: Text('LINE으로 로그인', textAlign: TextAlign.center, style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
+              Expanded(
+                child: Text(AppLocalizations.of(context)!.loginLine, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
               ),
               if (loading)
                 const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Colors.white)))
@@ -345,7 +348,7 @@ class _LineIconFallback extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(6)),
       alignment: Alignment.center,
-      child: const Text('LINE', style: TextStyle(color: Color(0xFF06C755), fontSize: 9, fontWeight: FontWeight.w800)),
+      child: Text(AppLocalizations.of(context)!.loginLineShort, style: const TextStyle(color: Color(0xFF06C755), fontSize: 9, fontWeight: FontWeight.w800)),
     );
   }
 }
@@ -385,11 +388,11 @@ class _GoogleLoginButton extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Text(
-                  '구글로 로그인',
+                  AppLocalizations.of(context)!.loginGoogle,
                   textAlign: TextAlign.center,
-                  style: TextStyle(
+                  style: const TextStyle(
                     color: textColor,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,

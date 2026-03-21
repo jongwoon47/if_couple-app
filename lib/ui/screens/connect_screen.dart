@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../../l10n/app_localizations.dart';
+import '../../l10n/app_locale_scope.dart';
 import '../../models/app_user.dart';
 import '../../services/couple_service.dart';
 
@@ -71,7 +73,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = _cleanErrorMessage(e);
+        _error = _mapConnectError(e, AppLocaleController.l10n);
       });
     }
   }
@@ -92,7 +94,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
     } catch (e) {
       if (!mounted) return;
       setState(() {
-        _error = _cleanErrorMessage(e);
+        _error = _mapConnectError(e, AppLocaleController.l10n);
       });
     } finally {
       if (mounted) {
@@ -125,7 +127,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
       // 웹에서 'converted Future'로 감싸진 경우 안쪽 boxed error를 꺼내서 사용
       final displayError = _unwrapBoxedError(e);
       setState(() {
-        _error = _cleanErrorMessage(displayError);
+        _error = _mapConnectError(displayError, AppLocalizations.of(context)!);
       });
     } finally {
       if (mounted) {
@@ -144,7 +146,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
     if (!mounted) return;
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('초대 코드를 복사했어요.')),
+      SnackBar(content: Text(AppLocalizations.of(context)!.inviteCopyDone)),
     );
   }
 
@@ -213,7 +215,39 @@ class _ConnectScreenState extends State<ConnectScreen> {
     }
   }
 
-  String _cleanErrorMessage(Object error) {
+  String? _mapKnownExceptionCode(String msg, AppLocalizations l10n) {
+    switch (msg) {
+      case 'INVALID_CODE':
+        return l10n.coupleInvalidCode;
+      case 'INVITE_EXPIRED':
+        return l10n.coupleInviteExpired;
+      case 'USER_NOT_FOUND':
+        return l10n.coupleUserNotFound;
+      case 'CONNECTION_INVALID':
+        return l10n.coupleConnectionInvalid;
+      case 'INVITE_CREATE_FAILED':
+        return l10n.coupleInviteCreateFailed;
+    }
+    if (msg.startsWith('DISCONNECT_ERROR:')) {
+      return l10n.coupleDisconnectError(
+        msg.substring('DISCONNECT_ERROR:'.length),
+      );
+    }
+    if (msg == 'DISCONNECT_PERMISSION_DENIED') {
+      return l10n.coupleDisconnectNoPermission;
+    }
+    return null;
+  }
+
+  String _mapConnectError(Object error, AppLocalizations l10n) {
+    final target = _unwrapBoxedError(error);
+    final msg = target.toString().replaceFirst('Exception: ', '').trim();
+    final mapped = _mapKnownExceptionCode(msg, l10n);
+    if (mapped != null) return mapped;
+    return _cleanErrorMessage(target, l10n);
+  }
+
+  String _cleanErrorMessage(Object error, AppLocalizations l10n) {
     // 래핑된 예외 풀기 (웹 boxed error, AsyncError 등)
     Object target = error;
     FirebaseException? firebaseEx;
@@ -225,7 +259,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
       if (target is FirebaseException) {
         firebaseEx = target;
         if (target.code == 'permission-denied') {
-          return '연결 권한이 없습니다. Firestore 규칙을 확인해 주세요.';
+          return l10n.connectErrorPermission;
         }
         final msg = (target.message ?? target.code).trim();
         if (msg.isNotEmpty) return msg;
@@ -257,26 +291,26 @@ class _ConnectScreenState extends State<ConnectScreen> {
     // 권한 거부가 메시지에 포함된 경우 (웹 등에서 래핑될 때)
     if (message.contains('permission-denied') ||
         message.contains('PERMISSION_DENIED')) {
-      return '연결 권한이 없습니다. Firestore 규칙을 확인해 주세요.';
+      return l10n.connectErrorPermission;
     }
 
     if (message.isEmpty ||
         message.contains('converted Future') ||
         message.contains('boxed error')) {
-      return '처리 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.\n(로그인 상태와 Firestore 규칙을 확인해 보세요.)';
+      return l10n.connectErrorGeneric;
     }
 
     return message;
   }
 
-  String _inputHintMessage() {
+  String _inputHintMessage(AppLocalizations l10n) {
     if (_normalizedInput.isEmpty) {
-      return '영문/숫자 6자리 초대 코드를 입력해 주세요.';
+      return l10n.codeHintEmpty;
     }
     if (_isCodeFormatValid) {
-      return '코드 형식이 올바릅니다.';
+      return l10n.codeHintValid;
     }
-    return '코드 형식이 올바르지 않습니다. 6자리를 맞춰 주세요.';
+    return l10n.codeHintInvalid;
   }
 
   Color _inputHintColor() {
@@ -291,6 +325,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
   @override
   Widget build(BuildContext context) {
     final invite = _inviteInfo;
+    final l10n = AppLocalizations.of(context)!;
 
     return Scaffold(
       body: Container(
@@ -316,20 +351,20 @@ class _ConnectScreenState extends State<ConnectScreen> {
                         const SizedBox(height: 24),
                         const _IfWordmark(),
                         const SizedBox(height: 20),
-                        const Text(
-                          '연인과 연결하세요',
+                        Text(
+                          l10n.connectTitle,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 36,
                             fontWeight: FontWeight.w800,
                             color: Color(0xFF6C5D78),
                           ),
                         ),
                         const SizedBox(height: 8),
-                        const Text(
-                          '초대 코드를 입력하거나 생성해서 연결할 수 있어요.',
+                        Text(
+                          l10n.connectSubtitle,
                           textAlign: TextAlign.center,
-                          style: TextStyle(
+                          style: const TextStyle(
                             fontSize: 15,
                             color: Color(0xFF9B8FA8),
                             fontWeight: FontWeight.w500,
@@ -396,21 +431,21 @@ class _ConnectScreenState extends State<ConnectScreen> {
                             fontWeight: FontWeight.w600,
                           ),
                           child: Text(
-                            _inputHintMessage(),
+                            _inputHintMessage(l10n),
                             textAlign: TextAlign.center,
                           ),
                         ),
                         const SizedBox(height: 12),
                         _ConnectButton(
-                          text: _connecting ? '연결 중...' : '연결하기',
+                          text: _connecting ? l10n.connectConnecting : l10n.connectButton,
                           enabled: _canConnect,
                           onTap: _onConnect,
                         ),
                         const SizedBox(height: 12),
-                        const Center(
+                        Center(
                           child: Text(
-                            '또는',
-                            style: TextStyle(
+                            l10n.connectOr,
+                            style: const TextStyle(
                               color: Color(0xFF9F93AC),
                               fontWeight: FontWeight.w600,
                             ),
@@ -434,6 +469,8 @@ class _ConnectScreenState extends State<ConnectScreen> {
                               ? _GenerateInviteButton(
                                   key: const ValueKey('generate-button'),
                                   loading: _creating,
+                                  loadingLabel: l10n.inviteGenerating,
+                                  idleLabel: l10n.inviteGenerate,
                                   onTap: _onGenerate,
                                 )
                               : _InviteCard(
@@ -441,6 +478,9 @@ class _ConnectScreenState extends State<ConnectScreen> {
                                   inviteCode: invite.code,
                                   countdown: _countdownText(),
                                   refreshing: _creating,
+                                  timeRemainingPrefix: l10n.timeRemainingPrefix,
+                                  refreshLoadingLabel: l10n.inviteRefreshing,
+                                  refreshIdleLabel: l10n.inviteRefresh,
                                   onCopy: _copyCode,
                                   onRefresh: _onGenerate,
                                 ),
@@ -466,10 +506,14 @@ class _GenerateInviteButton extends StatelessWidget {
   const _GenerateInviteButton({
     super.key,
     required this.loading,
+    required this.loadingLabel,
+    required this.idleLabel,
     required this.onTap,
   });
 
   final bool loading;
+  final String loadingLabel;
+  final String idleLabel;
   final VoidCallback onTap;
 
   @override
@@ -485,7 +529,7 @@ class _GenerateInviteButton extends StatelessWidget {
         ),
       ),
       child: Text(
-        loading ? '코드 생성 중...' : '초대 코드 생성',
+        loading ? loadingLabel : idleLabel,
         style: const TextStyle(
           color: Color(0xFF8D7E9D),
           fontWeight: FontWeight.w700,
@@ -502,6 +546,9 @@ class _InviteCard extends StatelessWidget {
     required this.inviteCode,
     required this.countdown,
     required this.refreshing,
+    required this.timeRemainingPrefix,
+    required this.refreshLoadingLabel,
+    required this.refreshIdleLabel,
     required this.onCopy,
     required this.onRefresh,
   });
@@ -509,6 +556,9 @@ class _InviteCard extends StatelessWidget {
   final String inviteCode;
   final String countdown;
   final bool refreshing;
+  final String timeRemainingPrefix;
+  final String refreshLoadingLabel;
+  final String refreshIdleLabel;
   final VoidCallback onCopy;
   final VoidCallback onRefresh;
 
@@ -565,9 +615,9 @@ class _InviteCard extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Text(
-                '남은 시간: ',
-                style: TextStyle(
+              Text(
+                timeRemainingPrefix,
+                style: const TextStyle(
                   color: Color(0xFF9A7F98),
                   fontWeight: FontWeight.w600,
                 ),
@@ -588,7 +638,7 @@ class _InviteCard extends StatelessWidget {
           const SizedBox(height: 8),
           OutlinedButton(
             onPressed: refreshing ? null : onRefresh,
-            child: Text(refreshing ? '새 코드 생성 중...' : '새 코드 생성'),
+            child: Text(refreshing ? refreshLoadingLabel : refreshIdleLabel),
           ),
         ],
       ),

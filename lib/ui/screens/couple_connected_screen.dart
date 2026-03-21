@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../l10n/app_localizations.dart';
 import '../../models/app_user.dart';
 import '../../services/user_service.dart';
 
@@ -40,6 +41,7 @@ class _CoupleConnectedScreenState extends State<CoupleConnectedScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -63,20 +65,20 @@ class _CoupleConnectedScreenState extends State<CoupleConnectedScreen> {
                       const SizedBox(height: 30),
                       const _IfWordmark(),
                       const SizedBox(height: 18),
-                      const Text(
-                        '커플 연결 완료!',
+                      Text(
+                        l10n.coupleConnectedTitle,
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: Color(0xFF7A637E),
                           fontSize: 34,
                           fontWeight: FontWeight.w800,
                         ),
                       ),
                       const SizedBox(height: 8),
-                      const Text(
-                        '서로 연결되었어요!\n둘만의 공간을 즐겨보세요.',
+                      Text(
+                        l10n.coupleConnectedSubtitle,
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: Color(0xFF9A8EA8),
                           fontSize: 18,
                           height: 1.4,
@@ -126,7 +128,7 @@ class _CoupleConnectedScreenState extends State<CoupleConnectedScreen> {
                                     label: widget.appUser.partnerNickname
                                         .trim()
                                         .isEmpty
-                                        ? '연인'
+                                        ? l10n.partnerDefault
                                         : widget.appUser.partnerNickname,
                                   ),
                                 ],
@@ -137,7 +139,7 @@ class _CoupleConnectedScreenState extends State<CoupleConnectedScreen> {
                       ),
                       const SizedBox(height: 24),
                       _PrimaryButton(
-                        label: _saving ? '확인 중...' : '확인',
+                        label: _saving ? l10n.confirming : l10n.confirm,
                         enabled: !_saving,
                         onTap: _confirm,
                       ),
