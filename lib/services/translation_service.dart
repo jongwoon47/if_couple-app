@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:http/http.dart' as http;
 
 import 'app_config.dart';
@@ -19,6 +20,12 @@ If the message is Japanese → translate it into natural Korean.
 
 Always translate to the opposite language.
 Never repeat the original language.
+
+NAMES AND VOCATIVES (STRICT — do not skip):
+- Korean messages often call the partner by name: …아, …야, …오빠, …자기, etc.
+- Keep the SAME person. Write Korean names in katakana from Korean pronunciation (e.g. 준혁 → ジュンヒョク, 민수 → ミンス).
+- NEVER replace a Korean name with a different Japanese given name. For example: 준혁아 must NOT become ヒカル, 翔, or any unrelated name — use ジュンヒョク plus natural Japanese address (e.g. ジュンヒョク、ジュンくん), not a name swap.
+- Japanese names in the message → keep reading consistent; do not substitute Korean names for them.
 
 OUTPUT RULES:
 - Output ONLY the translated sentence.
@@ -72,11 +79,22 @@ www → ㅋㅋ
     if (trimmed.length > maxCharacters) {
       throw Exception('번역은 $maxCharacters자까지 가능해요.');
     }
+    final currentUser = FirebaseAuth.instance.currentUser;
+    if (currentUser == null) {
+      throw Exception('로그인 정보가 없어 번역할 수 없어요.');
+    }
+    final idToken = await currentUser.getIdToken();
+    if (idToken == null || idToken.trim().isEmpty) {
+      throw Exception('인증 토큰을 가져오지 못했어요. 다시 로그인해 주세요.');
+    }
 
     final response = await http
         .post(
           _endpointUri(),
-          headers: {'Content-Type': 'application/json'},
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer $idToken',
+          },
           body: jsonEncode({
             'text': trimmed,
             'system_prompt':

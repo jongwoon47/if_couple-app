@@ -179,8 +179,74 @@ abstract class AppLocalizations {
   /// No description provided for @disconnectConfirmBody.
   ///
   /// In ko, this message translates to:
-  /// **'연결을 해제하면 D+ 일수, 채팅 대화, 추억 데이터가 더 이상 동기화되지 않습니다.'**
+  /// **'연결만 끊기며 채팅·앨범 등 데이터는 서버에 남습니다. 90일 안에 다시 로그인해 이전 연결을 복구할 수 있어요. 해제 후 로그아웃됩니다.'**
   String get disconnectConfirmBody;
+
+  /// No description provided for @restoreCoupleTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'이전 연결 복구'**
+  String get restoreCoupleTitle;
+
+  /// No description provided for @restoreCoupleSubtitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'상대도 로그인한 뒤, 둘 다 90일 안에 여기서 복구를 눌러야 다시 연결돼요.'**
+  String get restoreCoupleSubtitle;
+
+  /// No description provided for @restoreCoupleButton.
+  ///
+  /// In ko, this message translates to:
+  /// **'이전 연결로 다시 연결'**
+  String get restoreCoupleButton;
+
+  /// No description provided for @restoreCoupleRestoring.
+  ///
+  /// In ko, this message translates to:
+  /// **'복구 중…'**
+  String get restoreCoupleRestoring;
+
+  /// No description provided for @restoreErrorExpired.
+  ///
+  /// In ko, this message translates to:
+  /// **'복구 기간(90일)이 지났어요.'**
+  String get restoreErrorExpired;
+
+  /// No description provided for @restoreErrorPartnerNotReady.
+  ///
+  /// In ko, this message translates to:
+  /// **'상대가 아직 로그인하지 않았거나, 복구 조건이 맞지 않아요.'**
+  String get restoreErrorPartnerNotReady;
+
+  /// No description provided for @restoreErrorGeneric.
+  ///
+  /// In ko, this message translates to:
+  /// **'복구할 수 없어요. 잠시 후 다시 시도해 주세요.'**
+  String get restoreErrorGeneric;
+
+  /// No description provided for @accountDeleteTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'회원 탈퇴'**
+  String get accountDeleteTitle;
+
+  /// No description provided for @accountDeleteBody.
+  ///
+  /// In ko, this message translates to:
+  /// **'내 계정 정보가 삭제되고 상대는 연결이 끊겨요. 두 분 모두 탈퇴하면 채팅·앨범 등 커플 데이터가 모두 삭제됩니다.'**
+  String get accountDeleteBody;
+
+  /// No description provided for @accountDeleteConfirm.
+  ///
+  /// In ko, this message translates to:
+  /// **'탈퇴하기'**
+  String get accountDeleteConfirm;
+
+  /// No description provided for @accountDeleting.
+  ///
+  /// In ko, this message translates to:
+  /// **'탈퇴 처리 중…'**
+  String get accountDeleting;
 
   /// No description provided for @cancel.
   ///
@@ -926,6 +992,12 @@ abstract class AppLocalizations {
   /// **'매년 자동으로 표시되는 일정이에요.'**
   String get yearlyEventNote;
 
+  /// No description provided for @tripEventNote.
+  ///
+  /// In ko, this message translates to:
+  /// **'여행 일정에서 자동으로 추가된 일정이에요.'**
+  String get tripEventNote;
+
   /// No description provided for @changeDate.
   ///
   /// In ko, this message translates to:
@@ -1129,6 +1201,18 @@ abstract class AppLocalizations {
   /// In ko, this message translates to:
   /// **'저장에 실패했어요. Firestore 규칙·네트워크를 확인해 주세요.\n{error}'**
   String planSaveFailed(String error);
+
+  /// No description provided for @planOpenInMaps.
+  ///
+  /// In ko, this message translates to:
+  /// **'Google 지도에서 보기'**
+  String get planOpenInMaps;
+
+  /// No description provided for @planOpenMapsFailed.
+  ///
+  /// In ko, this message translates to:
+  /// **'지도를 열 수 없어요.'**
+  String get planOpenMapsFailed;
 
   /// No description provided for @mapPickerTitle.
   ///
@@ -1433,13 +1517,13 @@ abstract class AppLocalizations {
   /// No description provided for @appInfoVersion.
   ///
   /// In ko, this message translates to:
-  /// **'버전 1.0.0'**
+  /// **'버전 0.1.0'**
   String get appInfoVersion;
 
   /// No description provided for @appInfoUpdateDate.
   ///
   /// In ko, this message translates to:
-  /// **'최신 업데이트: 2024.04.22'**
+  /// **'최신 업데이트: 2026.03.25'**
   String get appInfoUpdateDate;
 
   /// No description provided for @privacyPolicy.
@@ -1454,11 +1538,53 @@ abstract class AppLocalizations {
   /// **'이용약관'**
   String get termsOfService;
 
+  /// No description provided for @openSourceLicenses.
+  ///
+  /// In ko, this message translates to:
+  /// **'오픈소스 라이선스'**
+  String get openSourceLicenses;
+
+  /// No description provided for @appInfoDeveloper.
+  ///
+  /// In ko, this message translates to:
+  /// **'개발'**
+  String get appInfoDeveloper;
+
+  /// No description provided for @appInfoDeveloperName.
+  ///
+  /// In ko, this message translates to:
+  /// **'IF App Team'**
+  String get appInfoDeveloperName;
+
+  /// No description provided for @appInfoDescription.
+  ///
+  /// In ko, this message translates to:
+  /// **'서로의 언어를 이어주는 커플 앱'**
+  String get appInfoDescription;
+
   /// No description provided for @contact.
   ///
   /// In ko, this message translates to:
   /// **'문의하기'**
   String get contact;
+
+  /// No description provided for @logout.
+  ///
+  /// In ko, this message translates to:
+  /// **'로그아웃'**
+  String get logout;
+
+  /// No description provided for @logoutConfirmTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'로그아웃'**
+  String get logoutConfirmTitle;
+
+  /// No description provided for @logoutConfirmBody.
+  ///
+  /// In ko, this message translates to:
+  /// **'정말 로그아웃하시겠어요?'**
+  String get logoutConfirmBody;
 
   /// No description provided for @notificationAll.
   ///

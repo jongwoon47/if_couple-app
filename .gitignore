@@ -30,6 +30,9 @@ ios/Flutter/Flutter.podspec
 # Web
 *.g.dart
 
+# Firebase
+.firebase/
+
 # Firebase / Node (functions)
 functions/node_modules/
 functions/.env

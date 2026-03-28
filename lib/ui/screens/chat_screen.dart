@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart' show kDebugMode;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
@@ -36,6 +36,12 @@ class _ChatScreenState extends State<ChatScreen> {
   /// 내가 메시지/사진 보낸 직후 스트림 반영 뒤 맨 아래로
   bool _forceScrollAfterSend = false;
 
+  /// Firestore는 내림차순이라 [0]이 최신. 직전 빌드의 최신 ID (내 메시지 도착 시 맨 아래로)
+  String? _prevNewestMessageId;
+
+  /// 이미지 로드 등으로 리스트 높이가 늦게 잡힐 때 재스크롤용
+  int _bottomEntryIndex = 0;
+
   /// 답장 대상 메시지 (입력창 위 미리보기용)
   ChatMessage? _replyTarget;
 
@@ -46,6 +52,9 @@ class _ChatScreenState extends State<ChatScreen> {
   final ItemScrollController _itemScrollController = ItemScrollController();
   /// messageId → 리스트 인덱스 (빌드 시 채움)
   final Map<String, int> _messageIdToIndex = <String, int>{};
+
+  /// 맨 아래 항목(웹에서 jumpTo만으로 스크롤이 안 잡힐 때 ensureVisible 보조)
+  final GlobalKey _chatBottomAnchorKey = GlobalKey(debugLabel: 'chatBottom');
 
   void _scrollToRepliedMessage(String? messageId) {
     if (messageId == null || messageId.isEmpty) return;
@@ -59,11 +68,33 @@ class _ChatScreenState extends State<ChatScreen> {
     );
   }
 
+  void _scrollBottomAnchorIntoView() {
+    if (!mounted) return;
+    final ctx = _chatBottomAnchorKey.currentContext;
+    if (ctx == null) return;
+    try {
+      Scrollable.ensureVisible(
+        ctx,
+        alignment: 1.0,
+        duration: Duration.zero,
+        curve: Curves.linear,
+      );
+    } catch (_) {
+      // 레이아웃 전 등 — 무시
+    }
+  }
+
   /// 리스트가 아직 붙지 않았을 수 있어 여러 번 재시도 (웹/모바일 공통)
+  ///
+  /// [ScrollablePositionedList.scrollTo]는 목표 행이 아직 레이아웃에 없을 때
+  /// 화면 높이의 2배씩 끊어 가며 크게 스크롤하는 애니메이션을 쓴다.
+  /// 채팅 맨 아래는 [jumpTo]로 맞추고, 웹은 한 프레임에 반영이 안 되는 경우가 있어
+  /// [Scrollable.ensureVisible]로 하단 앵커를 추가로 맞춘다.
   void _scrollToBottomWithRetry(int lastIndex, {int attempt = 0}) {
     if (!mounted || lastIndex < 0) return;
+    final maxAttempts = kIsWeb ? 50 : 30;
     if (!_itemScrollController.isAttached) {
-      if (attempt < 30) {
+      if (attempt < maxAttempts) {
         Future<void>.delayed(const Duration(milliseconds: 50), () {
           _scrollToBottomWithRetry(lastIndex, attempt: attempt + 1);
         });
@@ -71,18 +102,43 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
     try {
-      _itemScrollController.scrollTo(
+      _itemScrollController.jumpTo(
         index: lastIndex,
-        duration: Duration(milliseconds: attempt == 0 ? 0 : 220),
-        curve: Curves.easeOut,
         alignment: 1.0,
       );
     } catch (_) {
-      if (attempt < 30) {
+      if (attempt < maxAttempts) {
         Future<void>.delayed(const Duration(milliseconds: 50), () {
           _scrollToBottomWithRetry(lastIndex, attempt: attempt + 1);
         });
       }
+    }
+    void afterLayout() {
+      if (!mounted) return;
+      _scrollBottomAnchorIntoView();
+      if (kIsWeb) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          _scrollBottomAnchorIntoView();
+        });
+        Future<void>.delayed(const Duration(milliseconds: 16), () {
+          if (!mounted) return;
+          _scrollBottomAnchorIntoView();
+        });
+      }
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) => afterLayout());
+  }
+
+  /// 스트림 지연·이미지 레이아웃 후에도 맨 아래 유지
+  void _scheduleScrollToBottomFollowUps() {
+    for (final ms in const [400, 1000, 2200]) {
+      Future<void>.delayed(Duration(milliseconds: ms), () {
+        if (!mounted) return;
+        _scrollToBottomWithRetry(_bottomEntryIndex);
+        _scrollBottomAnchorIntoView();
+      });
     }
   }
 
@@ -96,8 +152,18 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    ChatService.markChatAsRead(widget.appUser.userId);
     _controller.dispose();
     super.dispose();
+  }
+
+  /// 새 메시지가 도착하면 자동으로 읽음 처리
+  void _markReadIfNewMessages(List<ChatMessage> messages) {
+    if (messages.isEmpty) return;
+    final newest = messages.first;
+    if (newest.senderId != widget.appUser.userId) {
+      ChatService.markChatAsRead(widget.appUser.userId);
+    }
   }
 
   void _openAttachmentMenu() {
@@ -182,7 +248,9 @@ class _ChatScreenState extends State<ChatScreen> {
       final picker = ImagePicker();
       final xFile = await picker.pickImage(
         source: ImageSource.camera,
-        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 78,
       );
       if (!mounted) return;
       if (xFile == null) return;
@@ -204,7 +272,12 @@ class _ChatScreenState extends State<ChatScreen> {
   Future<void> _pickFromGallery() async {
     try {
       final picker = ImagePicker();
-      final list = await picker.pickMultiImage(limit: 5, imageQuality: 85);
+      final list = await picker.pickMultiImage(
+        limit: 5,
+        maxWidth: 1920,
+        maxHeight: 1920,
+        imageQuality: 78,
+      );
       if (!mounted) return;
       if (list.isEmpty) return;
       final bytesList = <List<int>>[];
@@ -235,17 +308,19 @@ class _ChatScreenState extends State<ChatScreen> {
     if (bytesList.isEmpty) return;
     setState(() => _sending = true);
     try {
-      final urls = <String>[];
+      final uploadTasks = <Future<String>>[];
       for (var i = 0; i < bytesList.length; i++) {
         final ext = _imageExtensionFromPath(fileNames[i]);
-        final url = await ChatService.uploadChatImage(
-          coupleId: widget.appUser.coupleId!,
-          senderId: widget.appUser.userId,
-          bytes: bytesList[i],
-          fileExtension: ext,
+        uploadTasks.add(
+          ChatService.uploadChatImage(
+            coupleId: widget.appUser.coupleId!,
+            senderId: widget.appUser.userId,
+            bytes: bytesList[i],
+            fileExtension: ext,
+          ),
         );
-        urls.add(url);
       }
+      final urls = await Future.wait(uploadTasks);
       if (!mounted) return;
       await ChatService.sendMessage(
         coupleId: widget.appUser.coupleId!,
@@ -255,7 +330,8 @@ class _ChatScreenState extends State<ChatScreen> {
       );
       if (!mounted) return;
       setState(() => _forceScrollAfterSend = true);
-      Future<void>.delayed(const Duration(milliseconds: 900), () {
+      // 사진 업로드가 길면 스트림 반영이 늦음 — 플래그를 충분히 유지
+      Future<void>.delayed(const Duration(milliseconds: 4500), () {
         if (mounted) setState(() => _forceScrollAfterSend = false);
       });
       ScaffoldMessenger.of(context).showSnackBar(
@@ -307,7 +383,6 @@ class _ChatScreenState extends State<ChatScreen> {
         coupleId: widget.appUser.coupleId!,
         senderId: widget.appUser.userId,
         text: text,
-        systemPrompt: TranslationService.couplePrompt,
         replyToMessageId: _replyTarget?.messageId,
         replyToText: _replyTarget?.messageText,
       );
@@ -317,8 +392,7 @@ class _ChatScreenState extends State<ChatScreen> {
         _replyTarget = null;
         _forceScrollAfterSend = true;
       });
-      // Firestore 반영이 늦어도 맨 아래로 오도록 잠시 동안 스크롤 유지
-      Future<void>.delayed(const Duration(milliseconds: 900), () {
+      Future<void>.delayed(const Duration(milliseconds: 2500), () {
         if (mounted) setState(() => _forceScrollAfterSend = false);
       });
     } catch (e) {
@@ -385,16 +459,74 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   String? _effectiveTranslatedText(ChatMessage message) {
+    final saved = message.translatedText?.trim();
+    if (saved != null && saved.isNotEmpty && saved != message.messageText) {
+      return saved;
+    }
+
     final manual = _manualTranslations[message.messageId];
-    if (manual != null && manual.trim().isNotEmpty) {
+    if (manual != null && manual.trim().isNotEmpty && manual.trim() != message.messageText) {
       return manual.trim();
     }
 
-    final saved = message.translatedText?.trim();
-    if (saved == null || saved.isEmpty) {
-      return null;
+    return null;
+  }
+
+  /// 액션 시트의 「번역 보기」에서만 호출
+  Future<void> _translateMessageFromSheet(ChatMessage message) async {
+    final id = message.messageId;
+    if (_translatingMessageIds.contains(id)) return;
+
+    final existing = _effectiveTranslatedText(message);
+    if (existing != null) return;
+
+    if (message.messageText.trim().isEmpty) return;
+
+    if (!TranslationService.isConfigured) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(AppLocalizations.of(context)!.translateServerNotConfigured),
+        ),
+      );
+      return;
     }
-    return saved;
+
+    setState(() {
+      _translatingMessageIds.add(id);
+    });
+
+    try {
+      final translated = await TranslationService.translate(
+        text: message.messageText,
+        userId: widget.appUser.userId,
+        systemPrompt: TranslationService.couplePrompt,
+      );
+      if (!mounted) return;
+      setState(() {
+        _manualTranslations[id] = translated;
+      });
+
+      final coupleId = widget.appUser.coupleId;
+      if (coupleId != null && coupleId.isNotEmpty) {
+        ChatService.saveTranslation(
+          coupleId: coupleId,
+          messageId: id,
+          translatedText: translated,
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(_cleanErrorMessage(e))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _translatingMessageIds.remove(id);
+        });
+      }
+    }
   }
 
   void _toggleReaction(ChatMessage message, String emoji) {
@@ -455,12 +587,14 @@ class _ChatScreenState extends State<ChatScreen> {
                 title: Text(l10n.reply),
                 onTap: () => Navigator.of(context).pop(_MessageAction.reply),
               ),
-              ListTile(
-                leading: const Icon(Icons.translate_rounded),
-                title: Text(l10n.showTranslation),
-                onTap: () =>
-                    Navigator.of(context).pop(_MessageAction.viewTranslation),
-              ),
+              if (message.messageText.trim().isNotEmpty &&
+                  _effectiveTranslatedText(message) == null)
+                ListTile(
+                  leading: const Icon(Icons.translate_rounded),
+                  title: Text(l10n.showTranslation),
+                  onTap: () =>
+                      Navigator.of(context).pop(_MessageAction.viewTranslation),
+                ),
               ListTile(
                 leading: const Icon(Icons.refresh_rounded),
                 title: Text(l10n.retranslate),
@@ -516,10 +650,10 @@ class _ChatScreenState extends State<ChatScreen> {
         _toggleReaction(message, '💗');
         break;
       case _MessageAction.viewTranslation:
-        await _showTranslation(message: message, forceRefresh: false);
+        await _translateMessageFromSheet(message);
         break;
       case _MessageAction.retranslate:
-        await _showTranslation(message: message, forceRefresh: true);
+        await _retranslateMessage(message);
         break;
       case _MessageAction.copyOriginal:
         await Clipboard.setData(ClipboardData(text: message.messageText));
@@ -581,17 +715,9 @@ class _ChatScreenState extends State<ChatScreen> {
     }
   }
 
-  Future<void> _showTranslation({
-    required ChatMessage message,
-    required bool forceRefresh,
-  }) async {
-    final messageId = message.messageId;
-    final cached = _effectiveTranslatedText(message);
-
-    if (!forceRefresh && cached != null && cached != message.messageText) {
-      await _showTranslationDialog(message.messageText, cached);
-      return;
-    }
+  Future<void> _retranslateMessage(ChatMessage message) async {
+    final id = message.messageId;
+    if (_translatingMessageIds.contains(id)) return;
 
     if (!TranslationService.isConfigured) {
       if (!mounted) return;
@@ -603,10 +729,8 @@ class _ChatScreenState extends State<ChatScreen> {
       return;
     }
 
-    if (_translatingMessageIds.contains(messageId)) return;
-
     setState(() {
-      _translatingMessageIds.add(messageId);
+      _translatingMessageIds.add(id);
     });
 
     try {
@@ -616,12 +740,18 @@ class _ChatScreenState extends State<ChatScreen> {
         systemPrompt: TranslationService.couplePrompt,
       );
       if (!mounted) return;
-
       setState(() {
-        _manualTranslations[messageId] = translated;
+        _manualTranslations[id] = translated;
       });
 
-      await _showTranslationDialog(message.messageText, translated);
+      final coupleId = widget.appUser.coupleId;
+      if (coupleId != null && coupleId.isNotEmpty) {
+        ChatService.saveTranslation(
+          coupleId: coupleId,
+          messageId: id,
+          translatedText: translated,
+        );
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -630,47 +760,10 @@ class _ChatScreenState extends State<ChatScreen> {
     } finally {
       if (mounted) {
         setState(() {
-          _translatingMessageIds.remove(messageId);
+          _translatingMessageIds.remove(id);
         });
       }
     }
-  }
-
-  Future<void> _showTranslationDialog(String original, String translated) {
-    return showDialog<void>(
-      context: context,
-      builder: (context) {
-        final l10n = AppLocalizations.of(context)!;
-        return AlertDialog(
-          title: Text(l10n.translateSheetTitle),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                l10n.originalLabel,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              Text(original),
-              const SizedBox(height: 14),
-              Text(
-                l10n.translationLabel,
-                style: const TextStyle(fontWeight: FontWeight.w700),
-              ),
-              const SizedBox(height: 6),
-              Text(translated),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text(l10n.close),
-            ),
-          ],
-        );
-      },
-    );
   }
 
   @override
@@ -708,6 +801,8 @@ class _ChatScreenState extends State<ChatScreen> {
                     );
                   }
 
+                  _markReadIfNewMessages(messages);
+
                   final entries = _buildChatEntries(
                     messages,
                     widget.appUser.userId,
@@ -722,18 +817,34 @@ class _ChatScreenState extends State<ChatScreen> {
                   final effectiveTranslatedText = _effectiveTranslatedText;
                   final translatingIds = _translatingMessageIds;
 
-                  // 맨 아래: (1) 처음 입장 (2) 내가 방금 보낸 직후(_forceScrollAfterSend, ~0.9초)
-                  // 예전 _scrollToBottomScheduled 는 첫 프레임만 스크롤돼 Firestore 반영 전에 끊겼음.
+                  // messageStream: 내림차순 → 최신이 [0]
+                  final newest = messages.first;
+                  final newestId = newest.messageId;
+                  final ownNewestArrived = _prevNewestMessageId != null &&
+                      newestId != _prevNewestMessageId &&
+                      newest.senderId == widget.appUser.userId;
+                  _prevNewestMessageId = newestId;
+
+                  _bottomEntryIndex = entries.length - 1;
+
+                  // 맨 아래: (1) 처음 입장 (2) 전송 직후 플래그 (3) 내 최신 메시지가 스트림에 반영된 뒤
                   final scrollToBottomNow = entries.isNotEmpty &&
-                      (!_hasScrolledToBottomOnce || _forceScrollAfterSend);
+                      (!_hasScrolledToBottomOnce ||
+                          _forceScrollAfterSend ||
+                          ownNewestArrived);
                   if (scrollToBottomNow) {
                     final lastIndex = entries.length - 1;
                     final markFirstDone = !_hasScrolledToBottomOnce;
+                    // 내 메시지가 스트림에 붙은 뒤에만 지연 재스크롤 (이미지 높이·빌드 타이밍)
+                    final followUpAfterOwnMessage = ownNewestArrived;
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (!mounted) return;
                       _scrollToBottomWithRetry(lastIndex);
                       if (markFirstDone) {
                         setState(() => _hasScrolledToBottomOnce = true);
+                      }
+                      if (followUpAfterOwnMessage) {
+                        _scheduleScrollToBottomFollowUps();
                       }
                     });
                   }
@@ -746,20 +857,29 @@ class _ChatScreenState extends State<ChatScreen> {
                     initialAlignment: 1.0,
                     itemBuilder: (context, index) {
                       final entry = entries[index];
+                      final Widget child;
                       if (entry.isDateSeparator) {
-                        return _DateSeparator(date: entry.date!);
+                        child = _DateSeparator(date: entry.date!);
+                      } else {
+                        final msg = entry.message!;
+                        final mine = msg.senderId == widget.appUser.userId;
+                        child = _MessageBubble(
+                          message: msg,
+                          mine: mine,
+                          translatedText: effectiveTranslatedText(msg),
+                          isTranslating: translatingIds.contains(msg.messageId),
+                          reaction: _localReactions[msg.messageId],
+                          onLongPress: () => _openMessageActions(msg),
+                          onReplyTap: _scrollToRepliedMessage,
+                        );
                       }
-                      final msg = entry.message!;
-                      final mine = msg.senderId == widget.appUser.userId;
-                      return _MessageBubble(
-                        message: msg,
-                        mine: mine,
-                        translatedText: effectiveTranslatedText(msg),
-                        isTranslating: translatingIds.contains(msg.messageId),
-                        reaction: _localReactions[msg.messageId],
-                        onLongPress: () => _openMessageActions(msg),
-                        onReplyTap: _scrollToRepliedMessage,
-                      );
+                      if (index == entries.length - 1) {
+                        return KeyedSubtree(
+                          key: _chatBottomAnchorKey,
+                          child: child,
+                        );
+                      }
+                      return child;
                     },
                   );
                 },
@@ -1071,6 +1191,7 @@ class _MessageBubble extends StatelessWidget {
     required this.isTranslating,
     this.reaction,
     required this.onLongPress,
+    this.onTap,
     this.onReplyTap,
   });
 
@@ -1080,6 +1201,7 @@ class _MessageBubble extends StatelessWidget {
   final bool isTranslating;
   final String? reaction;
   final VoidCallback onLongPress;
+  final VoidCallback? onTap;
   final void Function(String? messageId)? onReplyTap;
 
   static const double _kChatImageMaxWidth = 280;
@@ -1135,6 +1257,7 @@ class _MessageBubble extends StatelessWidget {
         alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
         child: GestureDetector(
           onLongPress: onLongPress,
+          onTap: onTap,
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
             constraints: const BoxConstraints(maxWidth: _kChatImageMaxWidth),
@@ -1156,6 +1279,7 @@ class _MessageBubble extends StatelessWidget {
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
         onLongPress: onLongPress,
+        onTap: onTap,
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

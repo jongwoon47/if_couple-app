@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../services/user_service.dart';
+import '../widgets/onboarding_primary_button.dart';
 
 class ProfileSetupScreen extends StatefulWidget {
   const ProfileSetupScreen({super.key, required this.firebaseUser});
@@ -24,7 +25,23 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    // 웹·한글 IME 등에서 onChanged만으로는 rebuild가 빠질 수 있어
+    // 다음 버튼 enabled(검정) 갱신이 안 되는 경우가 있음 → 컨트롤러로 확실히 반영
+    _nicknameController.addListener(_onNicknameChanged);
+  }
+
+  void _onNicknameChanged() {
+    if (!mounted) return;
+    setState(() {
+      _error = null;
+    });
+  }
+
+  @override
   void dispose() {
+    _nicknameController.removeListener(_onNicknameChanged);
     _nicknameController.dispose();
     super.dispose();
   }
@@ -171,11 +188,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         return _NicknameStep(
           controller: _nicknameController,
           hintText: l10n.psNicknameHint,
-          onChanged: (_) {
-            setState(() {
-              _error = null;
-            });
-          },
+          onChanged: (_) {},
         );
       case 1:
         return _DateStep(
@@ -276,7 +289,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
                         _ErrorBox(text: _error!),
                       ],
                       const Spacer(),
-                      _PrimaryButton(
+                      OnboardingPrimaryButton(
                         label: _saving
                             ? l10n.saving
                             : (isLastStep ? l10n.done : l10n.psNext),
@@ -524,54 +537,6 @@ class _LanguageStep extends StatelessWidget {
           const SizedBox(height: 12),
         ],
       ],
-    );
-  }
-}
-
-class _PrimaryButton extends StatelessWidget {
-  const _PrimaryButton({
-    required this.label,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: enabled ? onTap : null,
-      borderRadius: BorderRadius.circular(18),
-      child: Ink(
-        height: 58,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          gradient: enabled
-              ? const LinearGradient(
-                  colors: [Color(0xFFF4B8D9), Color(0xFFE882BE)],
-                )
-              : const LinearGradient(
-                  colors: [Color(0xFFE0DBE5), Color(0xFFCFC8D8)],
-                ),
-          border: Border.all(
-            color: enabled ? const Color(0xFFE07FB8) : const Color(0xFFC3BACD),
-          ),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              // 형식에 맞을 때(활성)에는 흰색이 아닌 색,
-              // 형식에 맞지 않을 때(비활성)에는 흰색으로 표시
-              color: enabled ? const Color(0xFF8E829C) : Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-      ),
     );
   }
 }

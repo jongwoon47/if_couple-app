@@ -1,20 +1,32 @@
 class AppConfig {
   static const String authApiBaseUrl =
-      String.fromEnvironment('AUTH_API_BASE_URL', defaultValue: '');
+      String.fromEnvironment('AUTH_API_BASE_URL', defaultValue: 'https://asia-northeast3-if-app-b2854.cloudfunctions.net');
+
+  /// 카카오 네이티브 앱 키 (모바일 SDK). `--dart-define=KAKAO_NATIVE_APP_KEY=...`
+  static const String kakaoNativeAppKey =
+      String.fromEnvironment('KAKAO_NATIVE_APP_KEY', defaultValue: 'eb3ddf87e0dd88fcf3db85c3384519d8');
+
+  /// LINE Login 채널 ID (모바일 SDK). `--dart-define=LINE_CHANNEL_ID=...`
+  static const String lineChannelId =
+      String.fromEnvironment('LINE_CHANNEL_ID', defaultValue: '2009342913');
   /// 번역 API URL. Gemini 사용 시 Firebase Cloud Functions의 translate URL로 설정.
   /// (API 키는 Functions 쪽에만 두고, 앱에는 이 URL만 넣으면 됨.)
   /// 예: https://asia-northeast3-PROJECT_ID.cloudfunctions.net/translate
-  static const String translateApiUrl =
-      String.fromEnvironment('TRANSLATE_API_URL', defaultValue: '');
+  /// APK를 `--dart-define` 없이 빌드해도 번역이 되도록 기본 URL을 둠. 다른 환경이면 빌드 시 덮어쓰기.
+  static const String translateApiUrl = String.fromEnvironment(
+    'TRANSLATE_API_URL',
+    defaultValue: 'https://translate-bicdqwxmuq-du.a.run.app',
+  );
   static const String translateSystemPrompt = String.fromEnvironment(
     'TRANSLATE_SYSTEM_PROMPT',
-    defaultValue: 'Translate Korean to Japanese naturally for couples.',
+    defaultValue:
+        'Korean↔Japanese couple chat. Korean names and vocatives (…아/…야): use katakana from Korean sounds (준혁→ジュンヒョク); never replace with unrelated Japanese names like ヒカル. Output only the translation.',
   );
 
   /// Google Maps Geocoding(역지오코딩)용. 웹·동일 키로 빌드 시:
   /// `flutter run --dart-define=GOOGLE_MAPS_API_KEY=...`
   static const String googleMapsApiKey =
-      String.fromEnvironment('GOOGLE_MAPS_API_KEY', defaultValue: '');
+      String.fromEnvironment('GOOGLE_MAPS_API_KEY', defaultValue: 'AIzaSyBkqTE6RYT2J8rzT7JT0xajWmsDVh6EA6I');
 
   static bool get hasAuthApiBaseUrl => authApiBaseUrl.trim().isNotEmpty;
   static bool get hasTranslateApiUrl => translateApiUrl.trim().isNotEmpty;

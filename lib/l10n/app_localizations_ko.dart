@@ -49,7 +49,42 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get disconnectConfirmBody =>
-      '연결을 해제하면 D+ 일수, 채팅 대화, 추억 데이터가 더 이상 동기화되지 않습니다.';
+      '연결만 끊기며 채팅·앨범 등 데이터는 서버에 남습니다. 90일 안에 다시 로그인해 이전 연결을 복구할 수 있어요. 해제 후 로그아웃됩니다.';
+
+  @override
+  String get restoreCoupleTitle => '이전 연결 복구';
+
+  @override
+  String get restoreCoupleSubtitle =>
+      '상대도 로그인한 뒤, 둘 다 90일 안에 여기서 복구를 눌러야 다시 연결돼요.';
+
+  @override
+  String get restoreCoupleButton => '이전 연결로 다시 연결';
+
+  @override
+  String get restoreCoupleRestoring => '복구 중…';
+
+  @override
+  String get restoreErrorExpired => '복구 기간(90일)이 지났어요.';
+
+  @override
+  String get restoreErrorPartnerNotReady => '상대가 아직 로그인하지 않았거나, 복구 조건이 맞지 않아요.';
+
+  @override
+  String get restoreErrorGeneric => '복구할 수 없어요. 잠시 후 다시 시도해 주세요.';
+
+  @override
+  String get accountDeleteTitle => '회원 탈퇴';
+
+  @override
+  String get accountDeleteBody =>
+      '내 계정 정보가 삭제되고 상대는 연결이 끊겨요. 두 분 모두 탈퇴하면 채팅·앨범 등 커플 데이터가 모두 삭제됩니다.';
+
+  @override
+  String get accountDeleteConfirm => '탈퇴하기';
+
+  @override
+  String get accountDeleting => '탈퇴 처리 중…';
 
   @override
   String get cancel => '취소';
@@ -450,6 +485,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get yearlyEventNote => '매년 자동으로 표시되는 일정이에요.';
 
   @override
+  String get tripEventNote => '여행 일정에서 자동으로 추가된 일정이에요.';
+
+  @override
   String get changeDate => '날짜 변경';
 
   @override
@@ -561,6 +599,12 @@ class AppLocalizationsKo extends AppLocalizations {
   String planSaveFailed(String error) {
     return '저장에 실패했어요. Firestore 규칙·네트워크를 확인해 주세요.\n$error';
   }
+
+  @override
+  String get planOpenInMaps => 'Google 지도에서 보기';
+
+  @override
+  String get planOpenMapsFailed => '지도를 열 수 없어요.';
 
   @override
   String get mapPickerTitle => '지도에서 위치 선택';
@@ -719,10 +763,10 @@ class AppLocalizationsKo extends AppLocalizations {
   }
 
   @override
-  String get appInfoVersion => '버전 1.0.0';
+  String get appInfoVersion => '버전 0.1.0';
 
   @override
-  String get appInfoUpdateDate => '최신 업데이트: 2024.04.22';
+  String get appInfoUpdateDate => '최신 업데이트: 2026.03.25';
 
   @override
   String get privacyPolicy => '개인정보처리방침';
@@ -731,7 +775,28 @@ class AppLocalizationsKo extends AppLocalizations {
   String get termsOfService => '이용약관';
 
   @override
+  String get openSourceLicenses => '오픈소스 라이선스';
+
+  @override
+  String get appInfoDeveloper => '개발';
+
+  @override
+  String get appInfoDeveloperName => 'IF App Team';
+
+  @override
+  String get appInfoDescription => '서로의 언어를 이어주는 커플 앱';
+
+  @override
   String get contact => '문의하기';
+
+  @override
+  String get logout => '로그아웃';
+
+  @override
+  String get logoutConfirmTitle => '로그아웃';
+
+  @override
+  String get logoutConfirmBody => '정말 로그아웃하시겠어요?';
 
   @override
   String get notificationAll => '알림';

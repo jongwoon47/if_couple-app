@@ -1,9 +1,13 @@
 import 'dart:math';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
 import 'package:intl/intl.dart';
 
 import '../models/couple.dart';
+import 'album_service.dart';
+import 'app_firebase_storage.dart';
+import 'trip_service.dart';
 
 class InviteCodeInfo {
   const InviteCodeInfo({
@@ -203,12 +207,16 @@ class CoupleService {
           'hasSeenConnectionComplete': false,
           'coupleJoinedAt': Timestamp.fromDate(now),
           'partnerNickname': nicknameB.trim().isEmpty ? '' : nicknameB,
+          'lastCoupleId': FieldValue.delete(),
+          'coupleDisconnectedAt': FieldValue.delete(),
         });
         tx.update(userBRef, {
           'coupleId': coupleRef.id,
           'hasSeenConnectionComplete': false,
           'coupleJoinedAt': Timestamp.fromDate(now),
           'partnerNickname': nicknameA.trim().isEmpty ? '' : nicknameA,
+          'lastCoupleId': FieldValue.delete(),
+          'coupleDisconnectedAt': FieldValue.delete(),
         });
 
         tx.update(inviteRef, {
@@ -238,71 +246,305 @@ class CoupleService {
     });
   }
 
+  /// 연결만 끊고 커플 데이터(채팅·앨범 등)는 서버에 남깁니다. (탈퇴 시에만 전체 삭제)
   static Future<void> disconnectCouple({
     required String currentUserUid,
   }) async {
     final currentUserRef = _users.doc(currentUserUid);
 
+    final userUnlinkUpdate = <String, dynamic>{
+      'coupleId': null,
+      'hasSeenConnectionComplete': true,
+      'coupleJoinedAt': null,
+      'partnerNickname': '',
+      'startDate': FieldValue.delete(),
+    };
+
     try {
-      final result = await _firestore.runTransaction<String>((
-        tx,
-      ) async {
-        final currentUserSnap = await tx.get(currentUserRef);
-        if (!currentUserSnap.exists || currentUserSnap.data() == null) {
-          return '${_txErrorPrefix}USER_NOT_FOUND';
-        }
+      final currentUserSnap = await currentUserRef.get();
+      if (!currentUserSnap.exists || currentUserSnap.data() == null) {
+        throw Exception('USER_NOT_FOUND');
+      }
 
-        final currentUserData = currentUserSnap.data()!;
-        final coupleId = (currentUserData['coupleId'] ?? '') as String;
-        if (coupleId.isEmpty) {
-          return '';
-        }
+      final currentUserData = currentUserSnap.data()!;
+      final coupleId = (currentUserData['coupleId'] ?? '') as String;
+      if (coupleId.isEmpty) {
+        return;
+      }
 
-        final coupleRef = _couples.doc(coupleId);
-        final coupleSnap = await tx.get(coupleRef);
+      final coupleRef = _couples.doc(coupleId);
+      final coupleSnap = await coupleRef.get();
 
-        final userUnlinkUpdate = {
-          'coupleId': null,
-          'hasSeenConnectionComplete': true,
-          'coupleJoinedAt': null,
-        };
-
-        if (!coupleSnap.exists || coupleSnap.data() == null) {
-          tx.update(currentUserRef, userUnlinkUpdate);
-          return '';
-        }
-
-        final usersRaw = (coupleSnap.data()!['users'] as List?) ?? const [];
-        final users = usersRaw
-            .map((value) => value.toString())
-            .where((uid) => uid.isNotEmpty)
-            .toSet()
-            .toList();
-
-        if (!users.contains(currentUserUid)) {
-          return '${_txErrorPrefix}CONNECTION_INVALID';
-        }
-
-        for (final uid in users) {
-          tx.update(_users.doc(uid), userUnlinkUpdate);
-        }
-
-        tx.update(coupleRef, {
-          'disconnectedAt': Timestamp.fromDate(DateTime.now()),
-          'disconnectedBy': currentUserUid,
+      if (!coupleSnap.exists || coupleSnap.data() == null) {
+        await currentUserRef.update({
+          ...userUnlinkUpdate,
+          'lastCoupleId': coupleId,
+          'coupleDisconnectedAt': FieldValue.serverTimestamp(),
         });
+        return;
+      }
 
-        return '';
+      final usersRaw = (coupleSnap.data()!['users'] as List?) ?? const [];
+      final users = usersRaw
+          .map((value) => value.toString())
+          .where((uid) => uid.isNotEmpty)
+          .toSet()
+          .toList();
+
+      if (!users.contains(currentUserUid)) {
+        throw Exception('CONNECTION_INVALID');
+      }
+
+      final batch = _firestore.batch();
+      batch.update(coupleRef, {
+        'disconnectedAt': FieldValue.serverTimestamp(),
+        'disconnectedBy': currentUserUid,
       });
+      for (final uid in users) {
+        batch.update(_users.doc(uid), {
+          ...userUnlinkUpdate,
+          'lastCoupleId': coupleId,
+          'coupleDisconnectedAt': FieldValue.serverTimestamp(),
+        });
+      }
+      await batch.commit();
 
-      if (result.startsWith(_txErrorPrefix)) {
-        throw Exception(result.substring(_txErrorPrefix.length));
+      for (final uid in users) {
+        await _invalidateOpenCodes(uid);
       }
     } on FirebaseException catch (e) {
       if (e.code == 'permission-denied') {
         throw Exception('DISCONNECT_PERMISSION_DENIED');
       }
       throw Exception('DISCONNECT_ERROR:${e.code}');
+    }
+  }
+
+  /// [reconnectGracePeriod] 이내·상대도 동일 lastCoupleId일 때만 복구.
+  static const Duration reconnectGracePeriod = Duration(days: 90);
+
+  /// 이전 연결 복구 (양쪽이 같은 lastCoupleId를 갖고, 커플 문서가 해제 상태일 때)
+  static Future<void> tryRestoreCouple(String currentUserUid) async {
+    final userRef = _users.doc(currentUserUid);
+    final userSnap = await userRef.get();
+    if (!userSnap.exists || userSnap.data() == null) {
+      throw Exception('USER_NOT_FOUND');
+    }
+    final data = userSnap.data()!;
+    final lastCoupleId = (data['lastCoupleId'] ?? '') as String;
+    final disconnectedAtRaw = data['coupleDisconnectedAt'];
+    if (lastCoupleId.isEmpty || disconnectedAtRaw is! Timestamp) {
+      throw Exception('RESTORE_NOT_AVAILABLE');
+    }
+    if (DateTime.now().difference(disconnectedAtRaw.toDate()) >
+        reconnectGracePeriod) {
+      throw Exception('RESTORE_EXPIRED');
+    }
+
+    final coupleRef = _couples.doc(lastCoupleId);
+    final coupleSnap = await coupleRef.get();
+    if (!coupleSnap.exists || coupleSnap.data() == null) {
+      throw Exception('COUPLE_NOT_FOUND');
+    }
+    final cData = coupleSnap.data()!;
+    final dAt = cData['disconnectedAt'];
+    if (dAt is! Timestamp) {
+      throw Exception('COUPLE_NOT_DISCONNECTED');
+    }
+    if (DateTime.now().difference(dAt.toDate()) > reconnectGracePeriod) {
+      throw Exception('RESTORE_EXPIRED');
+    }
+
+    final usersRaw = (cData['users'] as List?) ?? const [];
+    final memberUids = usersRaw
+        .map((e) => e.toString())
+        .where((id) => id.isNotEmpty)
+        .toList();
+    if (!memberUids.contains(currentUserUid) || memberUids.length != 2) {
+      throw Exception('NOT_MEMBER');
+    }
+    final partnerUid = memberUids.firstWhere((u) => u != currentUserUid);
+
+    final partnerSnap = await _users.doc(partnerUid).get();
+    if (!partnerSnap.exists || partnerSnap.data() == null) {
+      throw Exception('PARTNER_NOT_FOUND');
+    }
+    final pd = partnerSnap.data()!;
+    final partnerLast = (pd['lastCoupleId'] ?? '') as String;
+    final partnerDisconnected = pd['coupleDisconnectedAt'];
+    if (partnerLast != lastCoupleId || partnerDisconnected is! Timestamp) {
+      throw Exception('PARTNER_NOT_READY');
+    }
+    if (DateTime.now().difference(partnerDisconnected.toDate()) >
+        reconnectGracePeriod) {
+      throw Exception('RESTORE_EXPIRED');
+    }
+
+    final myNickname = (data['nickname'] ?? '') as String;
+    final partnerNickname = (pd['nickname'] ?? '') as String;
+    final coupleStart = cData['startDate'] as Timestamp?;
+
+    await _firestore.runTransaction<void>((tx) async {
+      tx.update(coupleRef, {
+        'disconnectedAt': FieldValue.delete(),
+        'disconnectedBy': FieldValue.delete(),
+      });
+      final userUpdate = <String, dynamic>{
+        'coupleId': lastCoupleId,
+        'lastCoupleId': FieldValue.delete(),
+        'coupleDisconnectedAt': FieldValue.delete(),
+        'partnerNickname':
+            partnerNickname.trim().isEmpty ? '' : partnerNickname.trim(),
+        'hasSeenConnectionComplete': true,
+        'coupleJoinedAt': FieldValue.serverTimestamp(),
+      };
+      final partnerUpdate = <String, dynamic>{
+        'coupleId': lastCoupleId,
+        'lastCoupleId': FieldValue.delete(),
+        'coupleDisconnectedAt': FieldValue.delete(),
+        'partnerNickname': myNickname.trim().isEmpty ? '' : myNickname.trim(),
+        'hasSeenConnectionComplete': true,
+        'coupleJoinedAt': FieldValue.serverTimestamp(),
+      };
+      if (coupleStart != null) {
+        userUpdate['startDate'] = coupleStart;
+        partnerUpdate['startDate'] = coupleStart;
+      }
+      tx.update(userRef, userUpdate);
+      tx.update(_users.doc(partnerUid), partnerUpdate);
+    });
+  }
+
+  /// 회원 탈퇴: 내 users 문서 삭제·커플에 탈퇴 표시. **두 명 모두** 탈퇴하면 커플 데이터 전체 삭제.
+  static Future<void> onUserAccountDeletion(String uid) async {
+    final userRef = _users.doc(uid);
+    final userSnap = await userRef.get();
+    if (!userSnap.exists || userSnap.data() == null) return;
+
+    final data = userSnap.data()!;
+    final activeCoupleId = (data['coupleId'] ?? '') as String;
+    final lastCoupleId = (data['lastCoupleId'] ?? '') as String;
+    final targetCoupleId =
+        activeCoupleId.isNotEmpty ? activeCoupleId : lastCoupleId;
+
+    if (targetCoupleId.isEmpty) {
+      await userRef.delete();
+      return;
+    }
+
+    final coupleRef = _couples.doc(targetCoupleId);
+    final coupleSnap = await coupleRef.get();
+
+    final batch = _firestore.batch();
+
+    if (coupleSnap.exists) {
+      final cData = coupleSnap.data()!;
+      final usersRaw = (cData['users'] as List?) ?? const [];
+      final memberUids = usersRaw
+          .map((e) => e.toString())
+          .where((id) => id.isNotEmpty)
+          .toList();
+
+      batch.update(coupleRef, {
+        'accountDeletedUids': FieldValue.arrayUnion([uid]),
+        if (cData['disconnectedAt'] == null) ...<String, dynamic>{
+          'disconnectedAt': FieldValue.serverTimestamp(),
+          'disconnectedBy': uid,
+        },
+      });
+
+      final unlinkOther = <String, dynamic>{
+        'coupleId': null,
+        'partnerNickname': '',
+        'startDate': FieldValue.delete(),
+        'lastCoupleId': targetCoupleId,
+        'coupleDisconnectedAt': FieldValue.serverTimestamp(),
+        'hasSeenConnectionComplete': true,
+        'coupleJoinedAt': null,
+      };
+
+      for (final otherUid in memberUids) {
+        if (otherUid == uid) continue;
+        batch.update(_users.doc(otherUid), unlinkOther);
+      }
+    }
+
+    batch.delete(userRef);
+    await batch.commit();
+
+    final afterSnap = await coupleRef.get();
+    if (!afterSnap.exists) return;
+    final cd = afterSnap.data()!;
+    final usersList = (cd['users'] as List?)
+            ?.map((e) => e.toString())
+            .where((e) => e.isNotEmpty)
+            .toList() ??
+        [];
+    final deletedList = (cd['accountDeletedUids'] as List?)
+            ?.map((e) => e.toString())
+            .toList() ??
+        [];
+    if (usersList.length >= 2 &&
+        usersList.every((u) => deletedList.contains(u))) {
+      await _purgeCoupleData(targetCoupleId);
+    }
+  }
+
+  /// couples/{coupleId} 하위 문서·Storage 전부 삭제 후 커플 루트 문서 삭제.
+  static Future<void> _purgeCoupleData(String coupleId) async {
+    final coupleRef = _couples.doc(coupleId);
+
+    await _deleteCollectionInBatches(coupleRef.collection('messages'));
+    await _deleteCollectionInBatches(coupleRef.collection('events'));
+
+    final tripsSnap = await coupleRef.collection('trips').get();
+    for (final doc in tripsSnap.docs) {
+      await TripService.deleteTrip(coupleId: coupleId, tripId: doc.id);
+    }
+
+    final albumsSnap = await coupleRef.collection('albums').get();
+    for (final doc in albumsSnap.docs) {
+      await AlbumService.deleteAlbum(coupleId: coupleId, albumId: doc.id);
+    }
+
+    await coupleRef.delete();
+
+    try {
+      await _deleteStoragePrefix('couples/$coupleId');
+    } catch (_) {
+      // Firestore는 이미 비움. Storage만 남는 경우는 무시(규칙·네트워크)
+    }
+  }
+
+  static Future<void> _deleteCollectionInBatches(
+    CollectionReference<Map<String, dynamic>> ref,
+  ) async {
+    while (true) {
+      final snap = await ref.limit(500).get();
+      if (snap.docs.isEmpty) break;
+      final batch = _firestore.batch();
+      for (final d in snap.docs) {
+        batch.delete(d.reference);
+      }
+      await batch.commit();
+    }
+  }
+
+  static Future<void> _deleteStoragePrefix(String path) async {
+    final storage = getAppFirebaseStorage();
+    final ref = storage.ref(path);
+    await _deleteStorageRefRecursive(ref);
+  }
+
+  static Future<void> _deleteStorageRefRecursive(Reference ref) async {
+    final list = await ref.listAll();
+    for (final prefix in list.prefixes) {
+      await _deleteStorageRefRecursive(prefix);
+    }
+    for (final item in list.items) {
+      try {
+        await item.delete();
+      } catch (_) {}
     }
   }
 

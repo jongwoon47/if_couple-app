@@ -8,6 +8,7 @@ class CoupleEvent {
     required this.description,
     required this.date,
     this.createdAt,
+    this.tripId,
   });
 
   final String eventId;
@@ -16,9 +17,13 @@ class CoupleEvent {
   final String description;
   final DateTime date;
   final DateTime? createdAt;
+  final String? tripId;
 
   /// 자동 생성된 연간 일정(처음만난날·생일)이면 true (수정/삭제 불가)
   bool get isAnnual => eventId.startsWith('annual:');
+
+  /// 여행 일정에서 자동 생성된 이벤트
+  bool get isTripEvent => tripId != null && tripId!.isNotEmpty;
 
   Map<String, dynamic> toMap() {
     return {
@@ -28,6 +33,7 @@ class CoupleEvent {
       'description': description,
       'date': Timestamp.fromDate(date),
       'createdAt': createdAt == null ? FieldValue.serverTimestamp() : Timestamp.fromDate(createdAt!),
+      if (tripId != null) 'tripId': tripId,
     };
   }
 
@@ -40,6 +46,7 @@ class CoupleEvent {
       description: (map['description'] ?? '') as String,
       date: ((map['date'] as Timestamp?) ?? Timestamp.now()).toDate(),
       createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
+      tripId: map['tripId'] as String?,
     );
   }
 }

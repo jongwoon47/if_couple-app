@@ -21,6 +21,8 @@ class AppUser {
     this.startDate,
     this.coupleJoinedAt,
     this.createdAt,
+    this.lastCoupleId,
+    this.coupleDisconnectedAt,
   });
 
   final String userId;
@@ -42,6 +44,9 @@ class AppUser {
   final DateTime? startDate;
   final DateTime? coupleJoinedAt;
   final DateTime? createdAt;
+  /// 연결 해제 후 복구용(커플 문서 ID). 탈퇴 시에도 동일 ID로 데이터 정리에 사용.
+  final String? lastCoupleId;
+  final DateTime? coupleDisconnectedAt;
 
   bool get isProfileCompleted {
     // 프로필 완료 조건: 닉네임, 생일, 언어만 필수
@@ -72,12 +77,21 @@ class AppUser {
       'coupleJoinedAt':
           coupleJoinedAt == null ? null : Timestamp.fromDate(coupleJoinedAt!),
       'createdAt': createdAt == null ? FieldValue.serverTimestamp() : Timestamp.fromDate(createdAt!),
+      'lastCoupleId': lastCoupleId,
+      'coupleDisconnectedAt': coupleDisconnectedAt == null
+          ? null
+          : Timestamp.fromDate(coupleDisconnectedAt!),
     };
   }
 
   factory AppUser.fromMap(Map<String, dynamic> map) {
     DateTime? parseTimestamp(dynamic value) {
       if (value is Timestamp) return value.toDate();
+      return null;
+    }
+
+    String? parseOptionalNonEmptyString(dynamic value) {
+      if (value is String && value.trim().isNotEmpty) return value.trim();
       return null;
     }
 
@@ -101,6 +115,8 @@ class AppUser {
       startDate: parseTimestamp(map['startDate']),
       coupleJoinedAt: parseTimestamp(map['coupleJoinedAt']),
       createdAt: parseTimestamp(map['createdAt']),
+      lastCoupleId: parseOptionalNonEmptyString(map['lastCoupleId']),
+      coupleDisconnectedAt: parseTimestamp(map['coupleDisconnectedAt']),
     );
   }
 }

@@ -289,14 +289,6 @@ class _AlbumEditScreenState extends State<AlbumEditScreen> {
                     style: const TextStyle(color: Colors.grey, fontWeight: FontWeight.w600),
                   ),
                 ),
-              const SizedBox(height: 18),
-              SizedBox(
-                height: 48,
-                child: ElevatedButton(
-                  onPressed: _saving ? null : _save,
-                  child: Text(l10n.albumSaveButton),
-                ),
-              ),
             ],
           ),
         ),

@@ -107,6 +107,14 @@ class _HomeScreenState extends State<HomeScreen> {
             stream: CoupleService.coupleStream(coupleId),
             builder: (context, snapshot) {
               final l10n = AppLocalizations.of(context)!;
+              if (snapshot.connectionState == ConnectionState.waiting && !snapshot.hasData) {
+                return const Center(child: CircularProgressIndicator(color: Color(0xFFE184BA)));
+              }
+              if (snapshot.hasError) {
+                return Center(
+                  child: Text(l10n.loginFailed, style: const TextStyle(color: Color(0xFF8F7398))),
+                );
+              }
               final couple = snapshot.data;
               final startDate = couple?.startDate ?? appUser.startDate ?? DateTime.now();
               final dDay = _dDay(startDate);
@@ -142,19 +150,23 @@ class _HomeScreenState extends State<HomeScreen> {
                                 fontSize: 18,
                                 fontWeight: FontWeight.w600,
                               ),
-                              children: [
-                                TextSpan(text: '${appUser.nickname}  '),
-                                const TextSpan(
-                                  text: '♥',
-                                  style: TextStyle(
-                                    color: Color(0xFFB89BB5),
-                                    fontWeight: FontWeight.w500,
-                                  ),
-                                ),
-                                TextSpan(
-                                  text: '  ${appUser.partnerNickname.trim().isEmpty ? l10n.partnerDefault : appUser.partnerNickname}',
-                                ),
-                              ],
+                              children: appUser.partnerNickname.trim().isEmpty
+                                  ? [
+                                      TextSpan(text: appUser.nickname),
+                                    ]
+                                  : [
+                                      TextSpan(text: '${appUser.nickname}  '),
+                                      const TextSpan(
+                                        text: '♥',
+                                        style: TextStyle(
+                                          color: Color(0xFFB89BB5),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                      TextSpan(
+                                        text: '  ${appUser.partnerNickname}',
+                                      ),
+                                    ],
                             ),
                           ),
                           const SizedBox(height: 16),

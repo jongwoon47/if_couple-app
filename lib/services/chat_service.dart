@@ -6,7 +6,6 @@ import 'package:firebase_storage/firebase_storage.dart';
 
 import '../models/chat_message.dart';
 import 'app_firebase_storage.dart';
-import 'translation_service.dart';
 
 class ChatService {
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -97,7 +96,6 @@ class ChatService {
     required String coupleId,
     required String senderId,
     required String text,
-    String? systemPrompt,
     String? replyToMessageId,
     String? replyToText,
     List<String>? imageUrls,
@@ -107,32 +105,29 @@ class ChatService {
         imageUrls != null && imageUrls.isNotEmpty;
     if (trimmed.isEmpty && !hasImages) return;
 
-    String? translated;
-    if (trimmed.isNotEmpty && TranslationService.isConfigured) {
-      try {
-        if (trimmed.length <= TranslationService.maxCharacters) {
-          translated = await TranslationService.translate(
-            text: trimmed,
-            userId: senderId,
-            systemPrompt: systemPrompt,
-          );
-        }
-      } catch (_) {}
-    }
-
     final ref = _messagesRef(coupleId).doc();
     await ref.set({
       'messageId': ref.id,
       'coupleId': coupleId,
       'senderId': senderId,
       'messageText': trimmed,
-      'translatedText': translated,
       if (replyToMessageId != null && replyToMessageId.isNotEmpty)
         'replyToMessageId': replyToMessageId,
       if (replyToText != null && replyToText.isNotEmpty)
         'replyToText': replyToText,
       if (hasImages) 'imageUrls': imageUrls,
       'createdAt': FieldValue.serverTimestamp(),
+    });
+  }
+
+  /// 번역 결과를 메시지 문서에 저장 (한 번 번역하면 영구 보존)
+  static Future<void> saveTranslation({
+    required String coupleId,
+    required String messageId,
+    required String translatedText,
+  }) async {
+    await _messagesRef(coupleId).doc(messageId).update({
+      'translatedText': translatedText,
     });
   }
 

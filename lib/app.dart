@@ -6,6 +6,7 @@ import 'l10n/app_locale_scope.dart';
 import 'models/app_user.dart';
 import 'services/auth_service.dart';
 import 'services/firebase_initializer.dart';
+import 'services/push_notification_service.dart';
 import 'services/user_service.dart';
 import 'theme/app_theme.dart';
 import 'ui/screens/connect_screen.dart';
@@ -43,7 +44,7 @@ class _IfAppState extends State<IfApp> {
       locale: _locale,
       setLocale: _setLocale,
       child: MaterialApp(
-        title: 'IF App',
+        onGenerateTitle: (context) => AppLocalizations.of(context)!.appTitle,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
         locale: _locale,
@@ -133,6 +134,9 @@ class AppGate extends StatelessWidget {
             if (user == null) {
               return const LoginScreen();
             }
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              PushNotificationService.ensureInitializedForUser(user.uid);
+            });
 
             return StreamBuilder<AppUser?>(
               stream: UserService.userStream(user.uid),

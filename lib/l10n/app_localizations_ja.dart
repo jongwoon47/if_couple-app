@@ -48,7 +48,43 @@ class AppLocalizationsJa extends AppLocalizations {
   String get disconnectConfirmTitle => '本当に連携を解除しますか？';
 
   @override
-  String get disconnectConfirmBody => '連携を解除すると、D+日数、チャット、思い出データは同期されなくなります。';
+  String get disconnectConfirmBody =>
+      '連携だけが解かれ、チャットやアルバムのデータはサーバーに残ります。90日以内に再ログインして以前の連携を復元できます。解除後はログアウトされます。';
+
+  @override
+  String get restoreCoupleTitle => '以前の連携を復元';
+
+  @override
+  String get restoreCoupleSubtitle =>
+      '相手もログインしたうえで、お互いが90日以内にここで復元を押すと、再び連携されます。';
+
+  @override
+  String get restoreCoupleButton => '以前の連携に戻る';
+
+  @override
+  String get restoreCoupleRestoring => '復元中…';
+
+  @override
+  String get restoreErrorExpired => '復元期間（90日）が過ぎました。';
+
+  @override
+  String get restoreErrorPartnerNotReady => '相手がまだログインしていないか、条件が揃っていません。';
+
+  @override
+  String get restoreErrorGeneric => '復元できませんでした。しばらくしてから再度お試しください。';
+
+  @override
+  String get accountDeleteTitle => 'アカウント削除';
+
+  @override
+  String get accountDeleteBody =>
+      '自分のアカウント情報が削除され、相手側の連携も切れます。お二人とも退会すると、チャット・アルバムなどのデータがすべて削除されます。';
+
+  @override
+  String get accountDeleteConfirm => '退会する';
+
+  @override
+  String get accountDeleting => '退会処理中…';
 
   @override
   String get cancel => 'キャンセル';
@@ -449,6 +485,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get yearlyEventNote => '毎年自動で表示される予定です。';
 
   @override
+  String get tripEventNote => '旅行プランから自動で追加された予定です。';
+
+  @override
   String get changeDate => '日付を変更';
 
   @override
@@ -559,6 +598,12 @@ class AppLocalizationsJa extends AppLocalizations {
   String planSaveFailed(String error) {
     return '保存に失敗しました。Firestoreのルール・ネットワークを確認してください。\n$error';
   }
+
+  @override
+  String get planOpenInMaps => 'Googleマップで見る';
+
+  @override
+  String get planOpenMapsFailed => '地図を開けませんでした。';
 
   @override
   String get mapPickerTitle => '地図で場所を選択';
@@ -717,10 +762,10 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String get appInfoVersion => 'バージョン 1.0.0';
+  String get appInfoVersion => 'バージョン 0.1.0';
 
   @override
-  String get appInfoUpdateDate => '最新更新: 2024.04.22';
+  String get appInfoUpdateDate => '最新更新: 2026.03.25';
 
   @override
   String get privacyPolicy => 'プライバシーポリシー';
@@ -729,7 +774,28 @@ class AppLocalizationsJa extends AppLocalizations {
   String get termsOfService => '利用規約';
 
   @override
+  String get openSourceLicenses => 'オープンソースライセンス';
+
+  @override
+  String get appInfoDeveloper => '開発';
+
+  @override
+  String get appInfoDeveloperName => 'IF App Team';
+
+  @override
+  String get appInfoDescription => 'ふたりの言葉をつなぐカップルアプリ';
+
+  @override
   String get contact => 'お問い合わせ';
+
+  @override
+  String get logout => 'ログアウト';
+
+  @override
+  String get logoutConfirmTitle => 'ログアウト';
+
+  @override
+  String get logoutConfirmBody => '本当にログアウトしますか？';
 
   @override
   String get notificationAll => '通知';

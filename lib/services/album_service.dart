@@ -9,7 +9,7 @@ import '../models/album_models.dart';
 import 'app_firebase_storage.dart';
 
 class AlbumService {
-  static const int maxPhotosPerAlbumFree = 50;
+  static const int maxPhotosPerAlbumFree = 30;
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static FirebaseStorage get _storage => getAppFirebaseStorage();
 

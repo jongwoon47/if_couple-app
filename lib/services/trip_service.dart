@@ -1,5 +1,6 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import 'calendar_service.dart';
 import '../models/trip_models.dart';
 
 class TripService {
@@ -60,6 +61,13 @@ class TripService {
       endDate: endDate,
     );
     await ref.set(trip.toJson()..['createdAt'] = FieldValue.serverTimestamp());
+    await CalendarService.syncTripToCalendar(
+      coupleId: coupleId,
+      tripId: ref.id,
+      tripTitle: trip.title,
+      startDate: trip.startDate,
+      endDate: trip.endDate,
+    );
     return ref.id;
   }
 
@@ -67,7 +75,8 @@ class TripService {
     required String coupleId,
     required String tripId,
   }) async {
-    // 일정(plans) 삭제 후 trip 삭제
+    // 캘린더 연동 일정/세부일정(plans) 삭제 후 trip 삭제
+    await CalendarService.removeTripEvents(coupleId: coupleId, tripId: tripId);
     final plansSnapshot = await _planRef(coupleId, tripId).get();
     final batch = _firestore.batch();
     for (final doc in plansSnapshot.docs) {

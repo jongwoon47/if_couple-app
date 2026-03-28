@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../l10n/app_localizations.dart';
@@ -18,23 +19,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
   static const Color _bgTop = Color(0xFFF8EEF9);
   static const Color _bgBottom = Color(0xFFF2E5F3);
-
-  @override
-  void initState() {
-    super.initState();
-    _handleOAuthCallback();
-  }
-
-  Future<void> _handleOAuthCallback() async {
-    try {
-      await AuthService.handleWebOAuthCallbackIfNeeded();
-    } catch (e) {
-      if (!mounted) return;
-      setState(() {
-        _notices = _mapErrorToNotices(e.toString(), AppLocaleController.l10n);
-      });
-    }
-  }
 
   Future<void> _login(LoginProvider provider) async {
     if (_loadingProvider != null) return;
@@ -95,7 +79,10 @@ class _LoginScreenState extends State<LoginScreen> {
       );
     }
 
-    if (message.contains('oauth failed') || message.contains('oauth exchange')) {
+    if (message.contains('oauth failed') ||
+        message.contains('oauth exchange') ||
+        message.contains('token exchange failed') ||
+        message.contains('access token')) {
       notices.add(
         _LoginNotice(
           icon: Icons.gpp_bad,
@@ -182,20 +169,22 @@ class _LoginScreenState extends State<LoginScreen> {
                         ),
                       ),
                       const Spacer(),
-                      _KakaoLoginImageButton(
-                        loading: _loadingProvider == LoginProvider.kakao,
-                        onPressed: _loadingProvider == null
-                            ? () => _login(LoginProvider.kakao)
-                            : null,
-                      ),
-                      const SizedBox(height: 10),
-                      _LineLoginButton(
-                        loading: _loadingProvider == LoginProvider.line,
-                        onPressed: _loadingProvider == null
-                            ? () => _login(LoginProvider.line)
-                            : null,
-                      ),
-                      const SizedBox(height: 10),
+                      if (!kIsWeb) ...[
+                        _KakaoLoginImageButton(
+                          loading: _loadingProvider == LoginProvider.kakao,
+                          onPressed: _loadingProvider == null
+                              ? () => _login(LoginProvider.kakao)
+                              : null,
+                        ),
+                        const SizedBox(height: 10),
+                        _LineLoginButton(
+                          loading: _loadingProvider == LoginProvider.line,
+                          onPressed: _loadingProvider == null
+                              ? () => _login(LoginProvider.line)
+                              : null,
+                        ),
+                        const SizedBox(height: 10),
+                      ],
                       _GoogleLoginButton(
                         loading: _loadingProvider == LoginProvider.google,
                         onPressed: _loadingProvider == null
@@ -222,52 +211,10 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-const String _kakaoAssetPath = 'assets/images/kakao_login_medium_wide.png';
 const String _lineLogoPath = 'assets/images/line_logo.png';
 
 class _KakaoLoginImageButton extends StatelessWidget {
   const _KakaoLoginImageButton({required this.loading, required this.onPressed});
-  final bool loading;
-  final VoidCallback? onPressed;
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: loading ? null : onPressed,
-      child: SizedBox(
-        width: double.infinity,
-        height: 52,
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            Image.asset(
-              _kakaoAssetPath,
-              fit: BoxFit.cover,
-              width: double.infinity,
-              height: 52,
-              errorBuilder: (_, __, ___) => _KakaoFallback(loading: loading, onPressed: onPressed),
-            ),
-            if (loading)
-              const Positioned(
-                right: 16,
-                child: SizedBox(
-                  width: 18,
-                  height: 18,
-                  child: CircularProgressIndicator(
-                    strokeWidth: 2,
-                    valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF191919)),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _KakaoFallback extends StatelessWidget {
-  const _KakaoFallback({required this.loading, this.onPressed});
   final bool loading;
   final VoidCallback? onPressed;
 
@@ -282,8 +229,24 @@ class _KakaoFallback extends StatelessWidget {
         child: Container(
           width: double.infinity,
           height: 52,
-          alignment: Alignment.center,
-          child: Text(AppLocalizations.of(context)!.loginKakao, style: const TextStyle(color: Color(0xFF191919), fontSize: 18, fontWeight: FontWeight.w700)),
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Image.asset('assets/images/image.png', width: 32, height: 32),
+              Container(width: 1, height: 28, margin: const EdgeInsets.symmetric(horizontal: 10), color: const Color(0x1A000000)),
+              Expanded(
+                child: Text(
+                  AppLocalizations.of(context)!.loginKakao,
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(color: Color(0xFF191919), fontSize: 18, fontWeight: FontWeight.w700),
+                ),
+              ),
+              if (loading)
+                const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF191919))))
+              else
+                const SizedBox(width: 18, height: 18),
+            ],
+          ),
         ),
       ),
     );

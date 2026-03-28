@@ -198,7 +198,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
   Future<void> _showEventDetail(CoupleEvent event) async {
     if (!mounted) return;
     final l10n = AppLocalizations.of(context)!;
-    final isAnnual = event.isAnnual;
+    final isReadOnly = event.isAnnual || event.isTripEvent;
     await showModalBottomSheet<void>(
       context: context,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
@@ -217,12 +217,16 @@ class _CalendarScreenState extends State<CalendarScreen> {
                 const SizedBox(height: 12),
                 Text(event.description, style: const TextStyle(color: Color(0xFF8A7A92), fontSize: 15, height: 1.4)),
               ],
-              if (isAnnual) ...[
+              if (event.isAnnual) ...[
                 const SizedBox(height: 12),
                 Text(l10n.yearlyEventNote, style: const TextStyle(color: Color(0xFF9B8AA5), fontSize: 13)),
               ],
+              if (event.isTripEvent) ...[
+                const SizedBox(height: 12),
+                Text(l10n.tripEventNote, style: const TextStyle(color: Color(0xFF9B8AA5), fontSize: 13)),
+              ],
               const SizedBox(height: 20),
-              if (isAnnual)
+              if (isReadOnly)
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -498,7 +502,7 @@ class _CalendarScreenState extends State<CalendarScreen> {
                                     formatYmd: (d) => _formatYmd(context, d),
                                     onTapEvent: _showEventDetail,
                                     onLongPressEvent: (e) {
-                                      if (!e.isAnnual) _confirmDelete(e);
+                                      if (!e.isAnnual && !e.isTripEvent) _confirmDelete(e);
                                     },
                                   ),
                                   const SizedBox(height: 12),
@@ -852,11 +856,26 @@ class _SummaryCard extends StatelessWidget {
                           ),
                           const SizedBox(width: 10),
                           Expanded(
-                            child: Text(
-                              e.title,
-                              style: TextStyle(color: const Color(0xFF715D72), fontSize: subSize + 1, fontWeight: FontWeight.w600),
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  e.title,
+                                  style: TextStyle(color: const Color(0xFF715D72), fontSize: subSize + 1, fontWeight: FontWeight.w600),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                                if (e.description.trim().isNotEmpty)
+                                  Padding(
+                                    padding: const EdgeInsets.only(top: 2),
+                                    child: Text(
+                                      e.description,
+                                      style: TextStyle(color: const Color(0xFFA192AB), fontSize: subSize - 1, fontWeight: FontWeight.w500),
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                              ],
                             ),
                           ),
                           const Icon(Icons.chevron_right_rounded, color: Color(0xFFB8A8B8), size: 20),

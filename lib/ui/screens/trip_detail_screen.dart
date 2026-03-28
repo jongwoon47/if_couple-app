@@ -1,11 +1,44 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../l10n/app_localizations.dart';
 import '../../models/app_user.dart';
 import '../../models/trip_models.dart';
 import '../../services/trip_service.dart';
 import 'plan_edit_sheet.dart';
+
+Future<void> _openPlanLocationInGoogleMaps(BuildContext context, Plan plan) async {
+  final l10n = AppLocalizations.of(context)!;
+  final lat = plan.lat;
+  final lng = plan.lng;
+  final Uri uri;
+  if (lat != null && lng != null) {
+    uri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=$lat,$lng',
+    );
+  } else {
+    final name = plan.placeName.trim();
+    if (name.isEmpty) return;
+    uri = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=${Uri.encodeComponent(name)}',
+    );
+  }
+  try {
+    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!ok && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.planOpenMapsFailed)),
+      );
+    }
+  } catch (_) {
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(l10n.planOpenMapsFailed)),
+      );
+    }
+  }
+}
 
 class TripDetailScreen extends StatefulWidget {
   const TripDetailScreen({
@@ -250,6 +283,7 @@ class _PlanTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context)!;
     final timeText =
         plan.time != null ? DateFormat('HH:mm').format(plan.time!) : null;
 
@@ -258,7 +292,7 @@ class _PlanTile extends StatelessWidget {
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
@@ -306,6 +340,12 @@ class _PlanTile extends StatelessWidget {
                   ],
                 ],
               ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.map_outlined),
+              color: const Color(0xFFE98ABF),
+              tooltip: l10n.planOpenInMaps,
+              onPressed: () => _openPlanLocationInGoogleMaps(context, plan),
             ),
           ],
         ),

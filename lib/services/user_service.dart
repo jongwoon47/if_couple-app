@@ -160,4 +160,16 @@ class UserService {
       'hasSeenConnectionComplete': true,
     }, SetOptions(merge: true));
   }
+
+  static Future<void> addFcmToken({
+    required String userId,
+    required String token,
+  }) async {
+    final trimmed = token.trim();
+    if (trimmed.isEmpty) return;
+    await _users.doc(userId).set({
+      'fcmTokens': FieldValue.arrayUnion([trimmed]),
+      'fcmTokenUpdatedAt': FieldValue.serverTimestamp(),
+    }, SetOptions(merge: true));
+  }
 }

@@ -9,6 +9,7 @@ import '../../l10n/app_localizations.dart';
 import '../../l10n/app_locale_scope.dart';
 import '../../models/app_user.dart';
 import '../../services/couple_service.dart';
+import '../widgets/onboarding_primary_button.dart';
 
 class ConnectScreen extends StatefulWidget {
   const ConnectScreen({super.key, required this.appUser});
@@ -27,6 +28,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
   InviteCodeInfo? _inviteInfo;
   bool _creating = false;
   bool _connecting = false;
+  bool _restoring = false;
   String? _error;
   Timer? _timer;
 
@@ -60,6 +62,37 @@ class _ConnectScreenState extends State<ConnectScreen> {
         }
       });
     });
+  }
+
+  bool _canRestorePreviousCouple(AppUser u) {
+    if (u.coupleId != null && u.coupleId!.isNotEmpty) return false;
+    if (u.lastCoupleId == null || u.lastCoupleId!.isEmpty) return false;
+    final at = u.coupleDisconnectedAt;
+    if (at == null) return false;
+    return DateTime.now().difference(at) <= CoupleService.reconnectGracePeriod;
+  }
+
+  Future<void> _onRestoreCouple() async {
+    if (_restoring || _connecting) return;
+    setState(() {
+      _restoring = true;
+      _error = null;
+    });
+    try {
+      await CoupleService.tryRestoreCouple(widget.appUser.userId);
+    } catch (e) {
+      if (!mounted) return;
+      final displayError = _unwrapBoxedError(e);
+      setState(() {
+        _error = _mapConnectError(displayError, AppLocalizations.of(context)!);
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _restoring = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadExistingInvite() async {
@@ -236,6 +269,17 @@ class _ConnectScreenState extends State<ConnectScreen> {
     if (msg == 'DISCONNECT_PERMISSION_DENIED') {
       return l10n.coupleDisconnectNoPermission;
     }
+    if (msg == 'RESTORE_EXPIRED') {
+      return l10n.restoreErrorExpired;
+    }
+    if (msg == 'PARTNER_NOT_READY' ||
+        msg == 'NOT_MEMBER' ||
+        msg == 'COUPLE_NOT_FOUND' ||
+        msg == 'COUPLE_NOT_DISCONNECTED' ||
+        msg == 'RESTORE_NOT_AVAILABLE' ||
+        msg == 'PARTNER_NOT_FOUND') {
+      return l10n.restoreErrorPartnerNotReady;
+    }
     return null;
   }
 
@@ -370,6 +414,52 @@ class _ConnectScreenState extends State<ConnectScreen> {
                             fontWeight: FontWeight.w500,
                           ),
                         ),
+                        if (_canRestorePreviousCouple(widget.appUser)) ...[
+                          const SizedBox(height: 20),
+                          Container(
+                            padding: const EdgeInsets.all(16),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFFF8F1FB),
+                              borderRadius: BorderRadius.circular(16),
+                              border: Border.all(color: const Color(0xFFE5CFE2)),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Text(
+                                  l10n.restoreCoupleTitle,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 17,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF6C5D78),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  l10n.restoreCoupleSubtitle,
+                                  textAlign: TextAlign.center,
+                                  style: const TextStyle(
+                                    fontSize: 13,
+                                    color: Color(0xFF9B8FA8),
+                                    height: 1.35,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                FilledButton(
+                                  onPressed: _restoring ? null : _onRestoreCouple,
+                                  style: FilledButton.styleFrom(
+                                    backgroundColor: const Color(0xFFE77FB6),
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                  ),
+                                  child: _restoring
+                                      ? Text(l10n.restoreCoupleRestoring)
+                                      : Text(l10n.restoreCoupleButton),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 18),
                         TextField(
                           controller: _codeController,
@@ -436,10 +526,12 @@ class _ConnectScreenState extends State<ConnectScreen> {
                           ),
                         ),
                         const SizedBox(height: 12),
-                        _ConnectButton(
-                          text: _connecting ? l10n.connectConnecting : l10n.connectButton,
+                        OnboardingPrimaryButton(
+                          label: _connecting ? l10n.connectConnecting : l10n.connectButton,
                           enabled: _canConnect,
                           onTap: _onConnect,
+                          height: 54,
+                          borderRadius: 16,
                         ),
                         const SizedBox(height: 12),
                         Center(
@@ -641,51 +733,6 @@ class _InviteCard extends StatelessWidget {
             child: Text(refreshing ? refreshLoadingLabel : refreshIdleLabel),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _ConnectButton extends StatelessWidget {
-  const _ConnectButton({
-    required this.text,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final String text;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: enabled ? onTap : null,
-      borderRadius: BorderRadius.circular(16),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 180),
-        curve: Curves.easeOut,
-        height: 54,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: enabled
-              ? const LinearGradient(colors: [Color(0xFFF4B8D9), Color(0xFFE882BE)])
-              : const LinearGradient(colors: [Color(0xFFE0DBE5), Color(0xFFCFC8D8)]),
-        ),
-        child: Center(
-          child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 150),
-            child: Text(
-              text,
-              key: ValueKey(text),
-              style: TextStyle(
-                color: enabled ? Colors.white : const Color(0xFF92889A),
-                fontWeight: FontWeight.w700,
-                fontSize: 18,
-              ),
-            ),
-          ),
-        ),
       ),
     );
   }

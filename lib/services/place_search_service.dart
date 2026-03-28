@@ -30,7 +30,6 @@ class PlaceSearchService {
         'input': q,
         'key': key,
         'language': 'ko',
-        'components': 'country:kr',
       },
     );
 

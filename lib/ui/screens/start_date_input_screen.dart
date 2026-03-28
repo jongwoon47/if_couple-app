@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/app_user.dart';
 import '../../services/couple_service.dart';
+import '../widgets/onboarding_primary_button.dart';
 
 class StartDateInputScreen extends StatefulWidget {
   const StartDateInputScreen({super.key, required this.appUser});
@@ -197,7 +198,7 @@ class _StartDateInputScreenState extends State<StartDateInputScreen> {
                       ),
                     ],
                     const Spacer(),
-                    _PrimaryButton(
+                    OnboardingPrimaryButton(
                       label: _saving ? l10n.saving : l10n.done,
                       enabled: canSave,
                       onTap: _save,
@@ -242,52 +243,6 @@ class _IfWordmark extends StatelessWidget {
               ),
             ),
           ],
-        ),
-      ),
-    );
-  }
-}
-
-class _PrimaryButton extends StatelessWidget {
-  const _PrimaryButton({
-    required this.label,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: enabled ? onTap : null,
-      borderRadius: BorderRadius.circular(18),
-      child: Ink(
-        height: 58,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          gradient: enabled
-              ? const LinearGradient(
-                  colors: [Color(0xFFF4B8D9), Color(0xFFE882BE)],
-                )
-              : const LinearGradient(
-                  colors: [Color(0xFFE0DBE5), Color(0xFFCFC8D8)],
-                ),
-          border: Border.all(
-            color: enabled ? const Color(0xFFE07FB8) : const Color(0xFFC3BACD),
-          ),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: enabled ? const Color(0xFF8E829C) : Colors.white,
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
         ),
       ),
     );

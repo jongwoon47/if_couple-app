@@ -34,6 +34,9 @@ class _TripListScreenState extends State<TripListScreen> {
   }
 
   Future<void> _createTrip(BuildContext context) async {
+    final titleController = TextEditingController();
+    DateTimeRange? range;
+
     final created = await showModalBottomSheet<Trip>(
       context: context,
       isScrollControlled: true,
@@ -41,9 +44,6 @@ class _TripListScreenState extends State<TripListScreen> {
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (context) {
-        final titleController = TextEditingController();
-        DateTimeRange? range;
-
         return Padding(
           padding: EdgeInsets.only(
             left: 20,

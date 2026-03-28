@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../models/app_user.dart';
 import '../../services/user_service.dart';
+import '../widgets/onboarding_primary_button.dart';
 
 class CoupleConnectedScreen extends StatefulWidget {
   const CoupleConnectedScreen({super.key, required this.appUser});
@@ -138,10 +139,12 @@ class _CoupleConnectedScreenState extends State<CoupleConnectedScreen> {
                         ),
                       ),
                       const SizedBox(height: 24),
-                      _PrimaryButton(
+                      OnboardingPrimaryButton(
                         label: _saving ? l10n.confirming : l10n.confirm,
                         enabled: !_saving,
                         onTap: _confirm,
+                        height: 56,
+                        borderRadius: 16,
                       ),
                       if (_error != null) ...[
                         const SizedBox(height: 10),
@@ -160,48 +163,6 @@ class _CoupleConnectedScreenState extends State<CoupleConnectedScreen> {
                   ),
                 ),
               ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _PrimaryButton extends StatelessWidget {
-  const _PrimaryButton({
-    required this.label,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  final String label;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: enabled ? onTap : null,
-      borderRadius: BorderRadius.circular(16),
-      child: Ink(
-        height: 56,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: enabled
-              ? const LinearGradient(colors: [Color(0xFFF4B8D9), Color(0xFFE882BE)])
-              : const LinearGradient(colors: [Color(0xFFF7E9F2), Color(0xFFF3DEE9)]),
-          border: Border.all(
-            color: enabled ? const Color(0xFFE07FB8) : const Color(0xFFEAD7E4),
-          ),
-        ),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              color: enabled ? const Color(0xFF8E829C) : const Color(0xFFC2AFC1),
-              fontSize: 20,
-              fontWeight: FontWeight.w700,
             ),
           ),
         ),

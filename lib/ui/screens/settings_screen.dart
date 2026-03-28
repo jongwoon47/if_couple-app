@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/app_locale_scope.dart';
 import '../../models/app_user.dart';
+import '../../services/auth_service.dart';
 import '../../services/couple_service.dart';
 import '../../services/user_service.dart';
 import 'app_info_screen.dart';
@@ -23,6 +24,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _disconnecting = false;
+  bool _deletingAccount = false;
 
   int _dDay(DateTime startDate) {
     final now = DateTime.now();
@@ -42,6 +44,49 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
     }
     return msg;
+  }
+
+  Future<void> _confirmLogout(BuildContext context) async {
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: const Color(0xFFFDF6FF),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Text(
+          l10n.logoutConfirmTitle,
+          style: const TextStyle(color: Color(0xFF7F5C7C), fontWeight: FontWeight.w800, fontSize: 24),
+          textAlign: TextAlign.center,
+        ),
+        content: Text(
+          l10n.logoutConfirmBody,
+          style: const TextStyle(color: Color(0xFF8F7B97), fontSize: 15, fontWeight: FontWeight.w500),
+          textAlign: TextAlign.center,
+        ),
+        actions: [
+          Row(children: [
+            Expanded(
+              child: OutlinedButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: Text(l10n.cancel),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF9B6BC2), foregroundColor: Colors.white),
+                onPressed: () => Navigator.of(context).pop(true),
+                child: Text(l10n.logout),
+              ),
+            ),
+          ]),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await AuthService.signOut();
+    if (!mounted) return;
+    Navigator.of(context).popUntil((route) => route.isFirst);
   }
 
   Future<void> _confirmDisconnect(AppUser user) async {
@@ -108,8 +153,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     try {
       await CoupleService.disconnectCouple(currentUserUid: user.userId);
+      await AuthService.signOut();
       if (!mounted) return;
-      Navigator.of(context).pop();
+      Navigator.of(context).popUntil((route) => route.isFirst);
     } catch (e) {
       if (!mounted) return;
       final l10n = AppLocalizations.of(context)!;
@@ -124,6 +170,91 @@ class _SettingsScreenState extends State<SettingsScreen> {
       if (mounted) {
         setState(() {
           _disconnecting = false;
+        });
+      }
+    }
+  }
+
+  Future<void> _confirmDeleteAccount(AppUser user) async {
+    final l10n = AppLocalizations.of(context)!;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          backgroundColor: const Color(0xFFFDF6FF),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Text(
+            l10n.accountDeleteTitle,
+            style: const TextStyle(
+              color: Color(0xFF7F5C7C),
+              fontWeight: FontWeight.w800,
+              fontSize: 24,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          content: Text(
+            l10n.accountDeleteBody,
+            style: const TextStyle(
+              color: Color(0xFF8F7B97),
+              fontSize: 15,
+              fontWeight: FontWeight.w500,
+              height: 1.4,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          actions: [
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.of(context).pop(false),
+                    child: Text(l10n.cancel),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: ElevatedButton(
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFFB55C80),
+                      foregroundColor: Colors.white,
+                    ),
+                    onPressed: () => Navigator.of(context).pop(true),
+                    child: Text(l10n.accountDeleteConfirm),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        );
+      },
+    );
+
+    if (confirmed != true || _deletingAccount) return;
+
+    setState(() {
+      _deletingAccount = true;
+    });
+
+    try {
+      await CoupleService.onUserAccountDeletion(user.userId);
+      await AuthService.signOut();
+      if (!mounted) return;
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            e.toString().replaceFirst('Exception: ', '').trim(),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() {
+          _deletingAccount = false;
         });
       }
     }
@@ -181,7 +312,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    '${user.nickname}  ♥  ${user.partnerNickname.trim().isEmpty ? l10n.partnerDefault : user.partnerNickname}',
+                                    user.partnerNickname.trim().isEmpty
+                                        ? user.nickname
+                                        : '${user.nickname}  ♥  ${user.partnerNickname}',
                                     style: const TextStyle(
                                       color: Color(0xFF6F5C7C),
                                       fontSize: 18,
@@ -293,12 +426,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   ),
                   const SizedBox(height: 10),
                   _SettingsItem(
+                    icon: Icons.logout_rounded,
+                    title: l10n.logout,
+                    onTap: () => _confirmLogout(context),
+                  ),
+                  const SizedBox(height: 24),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, bottom: 8),
+                    child: Text(
+                      '⚠',
+                      style: TextStyle(
+                        color: const Color(0xFFB85A84).withValues(alpha: 0.6),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  _SettingsItem(
                     icon: Icons.heart_broken_rounded,
                     title: _disconnecting ? l10n.disconnecting : l10n.disconnect,
                     danger: true,
                     onTap: _disconnecting || (user.coupleId?.isEmpty ?? true)
                         ? null
                         : () => _confirmDisconnect(user),
+                  ),
+                  const SizedBox(height: 10),
+                  _SettingsItem(
+                    icon: Icons.person_off_rounded,
+                    title: _deletingAccount ? l10n.accountDeleting : l10n.accountDeleteTitle,
+                    danger: true,
+                    onTap: _deletingAccount || _disconnecting
+                        ? null
+                        : () => _confirmDeleteAccount(user),
                   ),
                   const SizedBox(height: 10),
                   _SettingsItem(

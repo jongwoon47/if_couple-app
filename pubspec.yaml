@@ -28,6 +28,9 @@ dependencies:
   path_provider: ^2.1.5
   share_plus: ^12.0.1
   shared_preferences: ^2.3.3
+  kakao_flutter_sdk: ^1.10.0
+  flutter_line_sdk: ^2.7.0
+  firebase_messaging: ^15.2.10
 
 dev_dependencies:
   flutter_test:
