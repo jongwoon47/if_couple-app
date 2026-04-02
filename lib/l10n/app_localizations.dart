@@ -719,8 +719,14 @@ abstract class AppLocalizations {
   /// No description provided for @translateServerNotConfigured.
   ///
   /// In ko, this message translates to:
-  /// **'번역 서버가 설정되지 않았어요. 실행 시 TRANSLATE_API_URL을 지정해 주세요.'**
+  /// **'첫 번역(번역 보기) 서버가 없어요. TRANSLATE_API_URL에 집 PC Gemma 주소를 넣어 주세요.'**
   String get translateServerNotConfigured;
+
+  /// No description provided for @retranslateServerNotConfigured.
+  ///
+  /// In ko, this message translates to:
+  /// **'재번역 서버가 없어요. TRANSLATE_RETRANSLATE_API_URL에 Gemini(클라우드) 주소를 넣어 주세요.'**
+  String get retranslateServerNotConfigured;
 
   /// No description provided for @translateSheetTitle.
   ///
@@ -1538,6 +1544,66 @@ abstract class AppLocalizations {
   /// **'이용약관'**
   String get termsOfService;
 
+  /// No description provided for @privacyConsentTitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'약관 동의'**
+  String get privacyConsentTitle;
+
+  /// No description provided for @privacyConsentIntro.
+  ///
+  /// In ko, this message translates to:
+  /// **'서비스를 이용하려면 아래에 동의해 주세요.'**
+  String get privacyConsentIntro;
+
+  /// No description provided for @privacyConsentAgreeAll.
+  ///
+  /// In ko, this message translates to:
+  /// **'전체 동의'**
+  String get privacyConsentAgreeAll;
+
+  /// No description provided for @privacyConsentAgreePrivacy.
+  ///
+  /// In ko, this message translates to:
+  /// **'개인정보처리방침에 동의합니다 (필수)'**
+  String get privacyConsentAgreePrivacy;
+
+  /// No description provided for @privacyConsentAgreeTerms.
+  ///
+  /// In ko, this message translates to:
+  /// **'이용약관에 동의합니다 (필수)'**
+  String get privacyConsentAgreeTerms;
+
+  /// No description provided for @privacyConsentAgreeAge.
+  ///
+  /// In ko, this message translates to:
+  /// **'만 14세 이상입니다 (필수)'**
+  String get privacyConsentAgreeAge;
+
+  /// No description provided for @privacyConsentAgreeMarketing.
+  ///
+  /// In ko, this message translates to:
+  /// **'마케팅 정보 수신에 동의합니다 (선택)'**
+  String get privacyConsentAgreeMarketing;
+
+  /// No description provided for @privacyConsentViewDocument.
+  ///
+  /// In ko, this message translates to:
+  /// **'전문 보기'**
+  String get privacyConsentViewDocument;
+
+  /// No description provided for @privacyConsentContinue.
+  ///
+  /// In ko, this message translates to:
+  /// **'동의하고 계속하기'**
+  String get privacyConsentContinue;
+
+  /// No description provided for @privacyConsentSaveError.
+  ///
+  /// In ko, this message translates to:
+  /// **'저장하지 못했어요. 잠시 후 다시 시도해 주세요.'**
+  String get privacyConsentSaveError;
+
   /// No description provided for @openSourceLicenses.
   ///
   /// In ko, this message translates to:
@@ -1610,6 +1676,18 @@ abstract class AppLocalizations {
   /// **'메시지를 받으면 알림을 받습니다.'**
   String get notificationMessageSubtitle;
 
+  /// No description provided for @notificationAlbum.
+  ///
+  /// In ko, this message translates to:
+  /// **'앨범 알림'**
+  String get notificationAlbum;
+
+  /// No description provided for @notificationAlbumSubtitle.
+  ///
+  /// In ko, this message translates to:
+  /// **'상대가 앨범에 사진을 올리면 알림을 받습니다.'**
+  String get notificationAlbumSubtitle;
+
   /// No description provided for @notificationAnniversary.
   ///
   /// In ko, this message translates to:
@@ -1619,7 +1697,7 @@ abstract class AppLocalizations {
   /// No description provided for @notificationAnniversarySubtitle.
   ///
   /// In ko, this message translates to:
-  /// **'기념일 알림을 받습니다.'**
+  /// **'커플 시작일(매년 같은 날)에 설정한 시각에 알림을 받습니다.'**
   String get notificationAnniversarySubtitle;
 
   /// No description provided for @notificationSchedule.
@@ -1631,7 +1709,7 @@ abstract class AppLocalizations {
   /// No description provided for @notificationScheduleSubtitle.
   ///
   /// In ko, this message translates to:
-  /// **'일정 당일 아침에 알림을 받습니다.'**
+  /// **'캘린더 일정이 있는 날, 아래에서 설정한 시각에 알림을 받습니다.'**
   String get notificationScheduleSubtitle;
 
   /// No description provided for @notificationTimeTitle.

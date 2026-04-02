@@ -51,26 +51,49 @@ www → ㅋㅋ
 泣 → ㅠㅠ
 ''';
 
-  static bool get isConfigured => AppConfig.hasTranslateApiUrl;
+  /// 첫 번역(번역 보기) — 집 Gemma 서버
+  static bool get isPrimaryConfigured => AppConfig.hasTranslateApiUrl;
 
-  static Uri _endpointUri() {
-    final raw = AppConfig.translateApiUrl.trim();
+  /// 재번역 — Gemini(클라우드)
+  static bool get isRetranslateConfigured =>
+      AppConfig.hasTranslateRetranslateApiUrl;
+
+  static Uri _endpointUri({required bool retranslate}) {
+    final raw = retranslate
+        ? AppConfig.translateRetranslateApiUrl.trim()
+        : AppConfig.translateApiUrl.trim();
     if (raw.isEmpty) {
       throw Exception(
-        'TRANSLATE_API_URL is not configured. '
-        'Run with --dart-define=TRANSLATE_API_URL=https://your-ngrok-url/translate',
+        retranslate
+            ? 'TRANSLATE_RETRANSLATE_API_URL is not configured.'
+            : 'TRANSLATE_API_URL is not configured.',
       );
     }
     return Uri.parse(raw);
   }
 
+  /// ngrok 무료 호스트는 비브라우저 클라이언트에 경고 HTML을 줄 수 있어 우회 헤더 추가
+  static Map<String, String> _translateRequestHeaders(String idToken, Uri uri) {
+    final headers = <String, String>{
+      'Content-Type': 'application/json',
+      'Authorization': 'Bearer $idToken',
+    };
+    final host = uri.host.toLowerCase();
+    if (host.contains('ngrok')) {
+      headers['ngrok-skip-browser-warning'] = 'true';
+    }
+    return headers;
+  }
+
   /// 최대 번역 가능 글자 수 (서버와 동일)
   static const int maxCharacters = 500;
 
+  /// [retranslate] true → Gemini(재번역 URL), false → 첫 번역(Gemma 등)
   static Future<String> translate({
     required String text,
     required String userId,
     String? systemPrompt,
+    bool retranslate = false,
   }) async {
     final trimmed = text.trim();
     if (trimmed.isEmpty) {
@@ -88,13 +111,11 @@ www → ㅋㅋ
       throw Exception('인증 토큰을 가져오지 못했어요. 다시 로그인해 주세요.');
     }
 
+    final uri = _endpointUri(retranslate: retranslate);
     final response = await http
         .post(
-          _endpointUri(),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer $idToken',
-          },
+          uri,
+          headers: _translateRequestHeaders(idToken, uri),
           body: jsonEncode({
             'text': trimmed,
             'system_prompt':

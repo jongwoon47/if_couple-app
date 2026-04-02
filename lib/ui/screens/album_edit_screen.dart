@@ -163,6 +163,7 @@ class _AlbumEditScreenState extends State<AlbumEditScreen> {
         await AlbumService.uploadPhotos(
           coupleId: coupleId,
           albumId: album.albumId,
+          uploadedByUserId: widget.appUser.userId,
           bytesList: bytesList,
           fileNames: fileNames,
         );

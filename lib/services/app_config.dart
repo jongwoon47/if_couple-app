@@ -9,12 +9,17 @@ class AppConfig {
   /// LINE Login 채널 ID (모바일 SDK). `--dart-define=LINE_CHANNEL_ID=...`
   static const String lineChannelId =
       String.fromEnvironment('LINE_CHANNEL_ID', defaultValue: '2009342913');
-  /// 번역 API URL. Gemini 사용 시 Firebase Cloud Functions의 translate URL로 설정.
-  /// (API 키는 Functions 쪽에만 두고, 앱에는 이 URL만 넣으면 됨.)
-  /// 예: https://asia-northeast3-PROJECT_ID.cloudfunctions.net/translate
-  /// APK를 `--dart-define` 없이 빌드해도 번역이 되도록 기본 URL을 둠. 다른 환경이면 빌드 시 덮어쓰기.
+  /// 첫 번역(번역 보기): 집 PC Gemma 등. `--dart-define=TRANSLATE_API_URL=...` 로 덮어쓰기 가능
   static const String translateApiUrl = String.fromEnvironment(
     'TRANSLATE_API_URL',
+    defaultValue:
+        'https://uncapsuled-tanja-improvingly.ngrok-free.dev/translate',
+  );
+
+  /// 재번역: Gemini(Cloud Functions 등). `--dart-define=TRANSLATE_RETRANSLATE_API_URL=...`
+  /// 기본값은 기존 단일 번역 엔드포인트와 동일.
+  static const String translateRetranslateApiUrl = String.fromEnvironment(
+    'TRANSLATE_RETRANSLATE_API_URL',
     defaultValue: 'https://translate-bicdqwxmuq-du.a.run.app',
   );
   static const String translateSystemPrompt = String.fromEnvironment(
@@ -30,5 +35,7 @@ class AppConfig {
 
   static bool get hasAuthApiBaseUrl => authApiBaseUrl.trim().isNotEmpty;
   static bool get hasTranslateApiUrl => translateApiUrl.trim().isNotEmpty;
+  static bool get hasTranslateRetranslateApiUrl =>
+      translateRetranslateApiUrl.trim().isNotEmpty;
   static bool get hasGoogleMapsApiKey => googleMapsApiKey.trim().isNotEmpty;
 }

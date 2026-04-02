@@ -13,6 +13,7 @@ import 'ui/screens/connect_screen.dart';
 import 'ui/screens/couple_connected_screen.dart';
 import 'ui/screens/home_screen.dart';
 import 'ui/screens/login_screen.dart';
+import 'ui/screens/privacy_consent_screen.dart';
 import 'ui/screens/profile_setup_screen.dart';
 import 'ui/screens/splash_screen.dart';
 import 'ui/screens/start_date_input_screen.dart';
@@ -150,7 +151,14 @@ class AppGate extends StatelessWidget {
                 }
 
                 final appUser = userSnapshot.data;
-                if (appUser == null || !appUser.isProfileCompleted) {
+                final needsConsent = appUser == null ||
+                    appUser.privacyPolicyAcceptedAt == null ||
+                    appUser.termsOfServiceAcceptedAt == null ||
+                    appUser.ageConfirmedAt == null;
+                if (needsConsent) {
+                  return PrivacyConsentScreen(firebaseUser: user);
+                }
+                if (!appUser.isProfileCompleted) {
                   return ProfileSetupScreen(firebaseUser: user);
                 }
 

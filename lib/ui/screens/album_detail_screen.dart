@@ -8,6 +8,20 @@ import '../../services/album_service.dart';
 import 'album_edit_screen.dart';
 import 'album_photo_viewer_screen.dart';
 
+/// 대표(cover) 사진을 항상 그리드 맨 앞(왼쪽 상단)으로
+List<AlbumPhoto> _sortAlbumPhotosCoverFirst(List<AlbumPhoto> photos, Album album) {
+  final list = List<AlbumPhoto>.from(photos);
+  final cid = album.coverPhotoId;
+  list.sort((a, b) {
+    final ac = cid != null && cid == a.photoId;
+    final bc = cid != null && cid == b.photoId;
+    if (ac && !bc) return -1;
+    if (!ac && bc) return 1;
+    return a.createdAt.compareTo(b.createdAt);
+  });
+  return list;
+}
+
 class AlbumDetailScreen extends StatelessWidget {
   const AlbumDetailScreen({
     super.key,
@@ -165,13 +179,14 @@ class AlbumDetailScreen extends StatelessWidget {
                   ),
                   builder: (context, photoSnap) {
                     final photos = photoSnap.data ?? const <AlbumPhoto>[];
+                    final sortedPhotos = _sortAlbumPhotosCoverFirst(photos, album);
 
                     if (photoSnap.connectionState == ConnectionState.waiting &&
                         photos.isEmpty) {
                       return const Center(child: CircularProgressIndicator());
                     }
 
-                    if (photos.isEmpty) {
+                    if (sortedPhotos.isEmpty) {
                       return Center(
                         child: Text(
                           l10n.albumNoPhotosHint,
@@ -194,9 +209,9 @@ class AlbumDetailScreen extends StatelessWidget {
                         crossAxisSpacing: 10,
                         childAspectRatio: 1,
                       ),
-                      itemCount: photos.length,
+                      itemCount: sortedPhotos.length,
                       itemBuilder: (context, index) {
-                        final photo = photos[index];
+                        final photo = sortedPhotos[index];
                         final isCover = album.coverPhotoId == photo.photoId;
 
                         return InkWell(
@@ -207,7 +222,8 @@ class AlbumDetailScreen extends StatelessWidget {
                                 builder: (_) => AlbumPhotoViewerScreen(
                                   appUser: appUser,
                                   album: album,
-                                  photo: photo,
+                                  photos: sortedPhotos,
+                                  initialIndex: index,
                                 ),
                               ),
                             );

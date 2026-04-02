@@ -1,5 +1,6 @@
 import { onRequest } from "firebase-functions/v2/https";
 import { onDocumentCreated } from "firebase-functions/v2/firestore";
+import { onSchedule } from "firebase-functions/v2/scheduler";
 import { defineSecret } from "firebase-functions/params";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import admin from "firebase-admin";
@@ -575,6 +576,106 @@ function getAuthKakaoCallbackUrl(req) {
   return `${base}/authKakaoCallback`;
 }
 
+/** Asia/Seoul 기준 "HH:mm" */
+function seoulHmNow() {
+  const d = new Date();
+  const f = new Intl.DateTimeFormat("en-GB", {
+    timeZone: "Asia/Seoul",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+  const parts = f.formatToParts(d);
+  const h = parts.find((p) => p.type === "hour")?.value ?? "09";
+  const m = parts.find((p) => p.type === "minute")?.value ?? "00";
+  return `${h}:${m}`;
+}
+
+function normalizeNotificationTime(s) {
+  const t = (s || "09:00").toString().trim();
+  const m = /^(\d{1,2}):(\d{2})$/.exec(t);
+  if (!m) return "09:00";
+  const hh = String(parseInt(m[1], 10)).padStart(2, "0");
+  const mm = String(parseInt(m[2], 10)).padStart(2, "0");
+  return `${hh}:${mm}`;
+}
+
+/** 기념일 비교용 월-일 (Seoul) */
+function monthDayInSeoul(ms) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(ms));
+  const mo = parts.find((p) => p.type === "month")?.value ?? "01";
+  const da = parts.find((p) => p.type === "day")?.value ?? "01";
+  return `${mo}-${da}`;
+}
+
+function seoulDayStartEnd() {
+  const now = new Date();
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Seoul",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(now);
+  const y = parts.find((p) => p.type === "year")?.value ?? "2026";
+  const mo = parts.find((p) => p.type === "month")?.value ?? "01";
+  const da = parts.find((p) => p.type === "day")?.value ?? "01";
+  const start = new Date(`${y}-${mo}-${da}T00:00:00+09:00`);
+  const end = new Date(`${y}-${mo}-${da}T23:59:59.999+09:00`);
+  return { start, end };
+}
+
+async function sendMulticastAndPruneInvalidTokens(receiverId, receiverDoc, payload) {
+  const receiver = receiverDoc.data() || {};
+  const tokensRaw = receiver.fcmTokens;
+  if (!Array.isArray(tokensRaw) || tokensRaw.length === 0) return;
+  const tokens = tokensRaw
+    .map((t) => (t ?? "").toString().trim())
+    .filter((t) => t.length > 0);
+  if (tokens.length === 0) return;
+
+  const dataStrings = {};
+  for (const [k, v] of Object.entries(payload.data || {})) {
+    dataStrings[k] = String(v ?? "");
+  }
+
+  const result = await admin.messaging().sendEachForMulticast({
+    tokens,
+    notification: payload.notification,
+    data: dataStrings,
+    android: {
+      priority: "high",
+      notification: {
+        channelId: "default",
+      },
+    },
+    apns: {
+      headers: { "apns-priority": "10" },
+    },
+  });
+
+  const invalidTokens = [];
+  result.responses.forEach((r, i) => {
+    if (r.success) return;
+    const code = r.error?.code || "";
+    if (
+      code === "messaging/registration-token-not-registered" ||
+      code === "messaging/invalid-registration-token"
+    ) {
+      invalidTokens.push(tokens[i]);
+    }
+  });
+
+  if (invalidTokens.length > 0) {
+    await db.collection("users").doc(receiverId).set({
+      fcmTokens: admin.firestore.FieldValue.arrayRemove(...invalidTokens),
+    }, { merge: true });
+  }
+}
+
 export const notifyOnMessageCreated = onDocumentCreated(
   {
     region: "asia-northeast3",
@@ -587,7 +688,10 @@ export const notifyOnMessageCreated = onDocumentCreated(
     const coupleId = event.params.coupleId;
     const senderId = (message.senderId || "").toString().trim();
     const text = (message.messageText || "").toString().trim();
-    if (!coupleId || !senderId || !text) return;
+    const imageUrls = message.imageUrls;
+    const hasImages = Array.isArray(imageUrls) && imageUrls.length > 0;
+    if (!coupleId || !senderId) return;
+    if (!text && !hasImages) return;
 
     const coupleDoc = await db.collection("couples").doc(coupleId).get();
     if (!coupleDoc.exists) return;
@@ -609,18 +713,12 @@ export const notifyOnMessageCreated = onDocumentCreated(
     const messageEnabled = receiver.notificationMessageEnabled !== false;
     if (!allEnabled || !messageEnabled) return;
 
-    const tokensRaw = receiver.fcmTokens;
-    if (!Array.isArray(tokensRaw) || tokensRaw.length === 0) return;
-    const tokens = tokensRaw
-      .map((t) => (t ?? "").toString().trim())
-      .filter((t) => t.length > 0);
-    if (tokens.length === 0) return;
-
     const senderName = (sender.nickname || "").toString().trim() || "Partner";
-    const body = text.length > 120 ? `${text.slice(0, 117)}...` : text;
+    const body = text
+      ? (text.length > 120 ? `${text.slice(0, 117)}...` : text)
+      : (hasImages ? "사진을 보냈어요" : "");
 
-    const result = await admin.messaging().sendEachForMulticast({
-      tokens,
+    await sendMulticastAndPruneInvalidTokens(receiverId, receiverDoc, {
       notification: {
         title: senderName,
         body,
@@ -631,33 +729,156 @@ export const notifyOnMessageCreated = onDocumentCreated(
         messageId: snap.id,
         senderId,
       },
-      android: {
-        priority: "high",
-        notification: {
-          channelId: "default",
-        },
+    });
+  }
+);
+
+/** 앨범에 사진이 추가되면 상대에게 푸시 (uploadedBy 필수) */
+export const notifyOnAlbumPhotoCreated = onDocumentCreated(
+  {
+    region: "asia-northeast3",
+    document: "couples/{coupleId}/albums/{albumId}/photos/{photoId}",
+  },
+  async (event) => {
+    const snap = event.data;
+    if (!snap) return;
+    const data = snap.data() || {};
+    const uploadedBy = (data.uploadedBy || "").toString().trim();
+    const coupleId = event.params.coupleId;
+    const albumId = event.params.albumId;
+    if (!uploadedBy || !coupleId) return;
+
+    const coupleDoc = await db.collection("couples").doc(coupleId).get();
+    if (!coupleDoc.exists) return;
+    const couple = coupleDoc.data() || {};
+    const user1Id = (couple.user1Id || "").toString().trim();
+    const user2Id = (couple.user2Id || "").toString().trim();
+    const receiverId = uploadedBy === user1Id ? user2Id : user1Id;
+    if (!receiverId || receiverId === uploadedBy) return;
+
+    const [receiverDoc, senderDoc, albumDoc] = await Promise.all([
+      db.collection("users").doc(receiverId).get(),
+      db.collection("users").doc(uploadedBy).get(),
+      db.collection("couples").doc(coupleId).collection("albums").doc(albumId).get(),
+    ]);
+    if (!receiverDoc.exists) return;
+    const receiver = receiverDoc.data() || {};
+    const allEnabled = receiver.notificationAllEnabled !== false;
+    const albumEnabled = receiver.notificationAlbumEnabled !== false;
+    if (!allEnabled || !albumEnabled) return;
+
+    const sender = senderDoc.exists ? senderDoc.data() || {} : {};
+    const senderName = (sender.nickname || "").toString().trim() || "Partner";
+    const albumTitle = (albumDoc.data()?.title || "").toString().trim() || "앨범";
+
+    await sendMulticastAndPruneInvalidTokens(receiverId, receiverDoc, {
+      notification: {
+        title: senderName,
+        body: `「${albumTitle}」에 새 사진이 올라왔어요`,
       },
-      apns: {
-        headers: { "apns-priority": "10" },
+      data: {
+        type: "album_photo",
+        coupleId,
+        albumId,
+        photoId: snap.id,
       },
     });
+  }
+);
 
-    const invalidTokens = [];
-    result.responses.forEach((r, i) => {
-      if (r.success) return;
-      const code = r.error?.code || "";
-      if (
-        code === "messaging/registration-token-not-registered" ||
-        code === "messaging/invalid-registration-token"
-      ) {
-        invalidTokens.push(tokens[i]);
+/**
+ * 매시간(Seoul 정각) 실행: 사용자가 설정한 알림 시각과 일치할 때만
+ * 기념일(커플 시작일) + 캘린더 일정(당일) FCM 발송
+ */
+export const sendScheduledReminders = onSchedule(
+  {
+    schedule: "0 * * * *",
+    timeZone: "Asia/Seoul",
+    region: "asia-northeast3",
+  },
+  async () => {
+    const hm = seoulHmNow();
+    const { start, end } = seoulDayStartEnd();
+    const startTs = admin.firestore.Timestamp.fromDate(start);
+    const endTs = admin.firestore.Timestamp.fromDate(end);
+    const todayMd = monthDayInSeoul(Date.now());
+
+    let eventsByCouple = new Map();
+    try {
+      const evSnap = await db.collectionGroup("events")
+        .where("date", ">=", startTs)
+        .where("date", "<=", endTs)
+        .get();
+      for (const doc of evSnap.docs) {
+        const cid = (doc.data().coupleId || doc.ref.parent.parent.id || "").toString().trim();
+        if (!cid) continue;
+        const title = (doc.data().title || "").toString().trim() || "일정";
+        if (!eventsByCouple.has(cid)) eventsByCouple.set(cid, []);
+        eventsByCouple.get(cid).push({ title, eventId: doc.id });
       }
-    });
+    } catch (e) {
+      console.error("sendScheduledReminders: collectionGroup events failed", e);
+    }
 
-    if (invalidTokens.length > 0) {
-      await db.collection("users").doc(receiverId).set({
-        fcmTokens: admin.firestore.FieldValue.arrayRemove(...invalidTokens),
-      }, { merge: true });
+    const couplesCache = new Map();
+    async function getCouple(coupleId) {
+      if (couplesCache.has(coupleId)) return couplesCache.get(coupleId);
+      const snap = await db.collection("couples").doc(coupleId).get();
+      const data = snap.exists ? snap.data() : null;
+      couplesCache.set(coupleId, data);
+      return data;
+    }
+
+    const usersSnap = await db.collection("users").get();
+    for (const doc of usersSnap.docs) {
+      const uid = doc.id;
+      const u = doc.data() || {};
+      const coupleId = (u.coupleId || "").toString().trim();
+      if (!coupleId) continue;
+      if (normalizeNotificationTime(u.notificationTime) !== hm) continue;
+      if (u.notificationAllEnabled === false) continue;
+
+      const receiverDoc = doc;
+
+      if (u.notificationScheduleEnabled !== false) {
+        const events = eventsByCouple.get(coupleId) || [];
+        if (events.length > 0) {
+          const body = events
+            .map((ev) => ev.title)
+            .filter(Boolean)
+            .join(" · ");
+          await sendMulticastAndPruneInvalidTokens(uid, receiverDoc, {
+            notification: {
+              title: "오늘의 일정",
+              body: body.length > 180 ? `${body.slice(0, 177)}...` : body,
+            },
+            data: {
+              type: "calendar_events",
+              coupleId,
+              count: String(events.length),
+            },
+          });
+        }
+      }
+
+      if (u.notificationAnniversaryEnabled !== false) {
+        const couple = await getCouple(coupleId);
+        if (!couple || !couple.startDate) continue;
+        const sd = couple.startDate;
+        const ms = sd.toMillis ? sd.toMillis() : (sd.seconds || 0) * 1000;
+        if (monthDayInSeoul(ms) === todayMd) {
+          await sendMulticastAndPruneInvalidTokens(uid, receiverDoc, {
+            notification: {
+              title: "기념일",
+              body: "오늘은 함께하기 시작한 날이에요 💕",
+            },
+            data: {
+              type: "anniversary",
+              coupleId,
+            },
+          });
+        }
+      }
     }
   }
 );

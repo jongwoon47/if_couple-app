@@ -44,12 +44,12 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'REPLACE_IOS_API_KEY',
-    appId: 'REPLACE_IOS_APP_ID',
-    messagingSenderId: 'REPLACE_MESSAGING_SENDER_ID',
-    projectId: 'REPLACE_PROJECT_ID',
-    storageBucket: 'REPLACE_PROJECT_ID.firebasestorage.app',
-    iosBundleId: 'com.example.ifApp',
+    apiKey: 'AIzaSyDor2b3AxNdV8AGZ5aIdasDU-0hGIKRAY0',
+    appId: '1:516031766053:ios:96c98131fabe08bd61e9cc',
+    messagingSenderId: '516031766053',
+    projectId: 'if-app-b2854',
+    storageBucket: 'if-app-b2854.firebasestorage.app',
+    iosBundleId: 'com.ifcouple.app',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -58,7 +58,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: 'REPLACE_MESSAGING_SENDER_ID',
     projectId: 'REPLACE_PROJECT_ID',
     storageBucket: 'REPLACE_PROJECT_ID.firebasestorage.app',
-    iosBundleId: 'com.example.ifApp',
+    iosBundleId: 'com.ifcouple.app',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

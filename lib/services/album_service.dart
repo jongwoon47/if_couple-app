@@ -113,6 +113,7 @@ class AlbumService {
   static Future<String> uploadPhotos({
     required String coupleId,
     required String albumId,
+    required String uploadedByUserId,
     required List<List<int>> bytesList,
     required List<String> fileNames,
   }) async {
@@ -147,6 +148,7 @@ class AlbumService {
       await _photoRef(coupleId, albumId).doc(photoId).set({
         'photoId': photoId,
         'albumId': albumId,
+        'uploadedBy': uploadedByUserId.trim(),
         'storagePath': storagePath,
         'imageUrl': url,
         'createdAt': FieldValue.serverTimestamp(),

@@ -42,6 +42,26 @@ class UserService {
     await _users.doc(user.userId).set(updates, SetOptions(merge: true));
   }
 
+  static Future<void> saveConsent({
+    required String userId,
+    required bool agreePrivacyPolicy,
+    required bool agreeTermsOfService,
+    required bool agreeAgeConfirm,
+    required bool agreeMarketing,
+    required String privacyPolicyVersion,
+    required String termsOfServiceVersion,
+  }) async {
+    final now = Timestamp.fromDate(DateTime.now());
+    await _users.doc(userId).set({
+      if (agreePrivacyPolicy) 'privacyPolicyAcceptedAt': now,
+      if (agreeTermsOfService) 'termsOfServiceAcceptedAt': now,
+      if (agreeAgeConfirm) 'ageConfirmedAt': now,
+      'privacyPolicyVersion': privacyPolicyVersion,
+      'termsOfServiceVersion': termsOfServiceVersion,
+      'marketingConsentAcceptedAt': agreeMarketing ? now : null,
+    }, SetOptions(merge: true));
+  }
+
   static Future<void> createUserIfNotExists(User firebaseUser) async {
     final docRef = _users.doc(firebaseUser.uid);
     final doc = await docRef.get();

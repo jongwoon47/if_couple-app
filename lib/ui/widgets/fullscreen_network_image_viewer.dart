@@ -96,33 +96,43 @@ class _DialogBodyState extends State<_DialogBody> {
               ),
             ),
           ),
+          // 닫기·다운로드를 좌우 한 줄이 아니라 상단 / 하단으로 분리 (갤러리·메신저 앱과 유사)
           SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  IconButton(
+            child: Stack(
+              children: [
+                Positioned(
+                  top: 4,
+                  left: 4,
+                  child: IconButton(
                     icon: const Icon(Icons.close_rounded, color: Colors.white, size: 28),
                     tooltip: l10n.closeTooltip,
                     onPressed: () => Navigator.of(context).pop(),
                   ),
-                  IconButton(
-                    icon: _downloading
-                        ? const SizedBox(
-                            width: 24,
-                            height: 24,
-                            child: CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white70,
-                            ),
-                          )
-                        : const Icon(Icons.download_rounded, color: Colors.white, size: 28),
-                    tooltip: l10n.downloadTooltip,
-                    onPressed: _downloading ? null : _onDownload,
+                ),
+                Positioned(
+                  right: 4,
+                  bottom: 12,
+                  child: Material(
+                    color: Colors.white24,
+                    shape: const CircleBorder(),
+                    clipBehavior: Clip.antiAlias,
+                    child: IconButton(
+                      icon: _downloading
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white70,
+                              ),
+                            )
+                          : const Icon(Icons.download_rounded, color: Colors.white, size: 28),
+                      tooltip: l10n.downloadTooltip,
+                      onPressed: _downloading ? null : _onDownload,
+                    ),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],

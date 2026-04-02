@@ -19,6 +19,7 @@ class NotificationSettingsScreen extends StatefulWidget {
 class _NotificationSettingsScreenState extends State<NotificationSettingsScreen> {
   late bool _allEnabled;
   late bool _messageEnabled;
+  late bool _albumEnabled;
   late bool _anniversaryEnabled;
   late bool _scheduleEnabled;
   late TimeOfDay _notifyTime;
@@ -31,6 +32,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
     super.initState();
     _allEnabled = widget.appUser.notificationAllEnabled;
     _messageEnabled = widget.appUser.notificationMessageEnabled;
+    _albumEnabled = widget.appUser.notificationAlbumEnabled;
     _anniversaryEnabled = widget.appUser.notificationAnniversaryEnabled;
     _scheduleEnabled = widget.appUser.notificationScheduleEnabled;
     _notifyTime = _parseTime(widget.appUser.notificationTime);
@@ -62,7 +64,8 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
   }
 
   void _updateMasterByChildren() {
-    _allEnabled = _messageEnabled || _anniversaryEnabled || _scheduleEnabled;
+    _allEnabled =
+        _messageEnabled || _albumEnabled || _anniversaryEnabled || _scheduleEnabled;
   }
 
   Future<void> _pickTime() async {
@@ -91,7 +94,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
         userId: widget.appUser.userId,
         allEnabled: _allEnabled,
         messageEnabled: _messageEnabled,
-        albumEnabled: widget.appUser.notificationAlbumEnabled,
+        albumEnabled: _albumEnabled,
         anniversaryEnabled: _anniversaryEnabled,
         scheduleEnabled: _scheduleEnabled,
         notificationTime: _timeValue(),
@@ -157,6 +160,7 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                           setState(() {
                             _allEnabled = value;
                             _messageEnabled = value;
+                            _albumEnabled = value;
                             _anniversaryEnabled = value;
                             _scheduleEnabled = value;
                           });
@@ -169,6 +173,17 @@ class _NotificationSettingsScreenState extends State<NotificationSettingsScreen>
                         onChanged: (value) {
                           setState(() {
                             _messageEnabled = value;
+                            _updateMasterByChildren();
+                          });
+                        },
+                      ),
+                      _NotifyRow(
+                        label: l10n.notificationAlbum,
+                        subtitle: l10n.notificationAlbumSubtitle,
+                        value: _albumEnabled,
+                        onChanged: (value) {
+                          setState(() {
+                            _albumEnabled = value;
                             _updateMasterByChildren();
                           });
                         },

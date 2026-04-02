@@ -23,6 +23,12 @@ class AppUser {
     this.createdAt,
     this.lastCoupleId,
     this.coupleDisconnectedAt,
+    this.privacyPolicyAcceptedAt,
+    this.termsOfServiceAcceptedAt,
+    this.ageConfirmedAt,
+    this.marketingConsentAcceptedAt,
+    this.privacyPolicyVersion,
+    this.termsOfServiceVersion,
   });
 
   final String userId;
@@ -47,6 +53,13 @@ class AppUser {
   /// 연결 해제 후 복구용(커플 문서 ID). 탈퇴 시에도 동일 ID로 데이터 정리에 사용.
   final String? lastCoupleId;
   final DateTime? coupleDisconnectedAt;
+  /// 개인정보·이용약관 동의 시각. null이면 동의 화면을 띄움.
+  final DateTime? privacyPolicyAcceptedAt;
+  final DateTime? termsOfServiceAcceptedAt;
+  final DateTime? ageConfirmedAt;
+  final DateTime? marketingConsentAcceptedAt;
+  final String? privacyPolicyVersion;
+  final String? termsOfServiceVersion;
 
   bool get isProfileCompleted {
     // 프로필 완료 조건: 닉네임, 생일, 언어만 필수
@@ -81,6 +94,19 @@ class AppUser {
       'coupleDisconnectedAt': coupleDisconnectedAt == null
           ? null
           : Timestamp.fromDate(coupleDisconnectedAt!),
+      'privacyPolicyAcceptedAt': privacyPolicyAcceptedAt == null
+          ? null
+          : Timestamp.fromDate(privacyPolicyAcceptedAt!),
+      'termsOfServiceAcceptedAt': termsOfServiceAcceptedAt == null
+          ? null
+          : Timestamp.fromDate(termsOfServiceAcceptedAt!),
+      'ageConfirmedAt':
+          ageConfirmedAt == null ? null : Timestamp.fromDate(ageConfirmedAt!),
+      'marketingConsentAcceptedAt': marketingConsentAcceptedAt == null
+          ? null
+          : Timestamp.fromDate(marketingConsentAcceptedAt!),
+      'privacyPolicyVersion': privacyPolicyVersion,
+      'termsOfServiceVersion': termsOfServiceVersion,
     };
   }
 
@@ -117,6 +143,12 @@ class AppUser {
       createdAt: parseTimestamp(map['createdAt']),
       lastCoupleId: parseOptionalNonEmptyString(map['lastCoupleId']),
       coupleDisconnectedAt: parseTimestamp(map['coupleDisconnectedAt']),
+      privacyPolicyAcceptedAt: parseTimestamp(map['privacyPolicyAcceptedAt']),
+      termsOfServiceAcceptedAt: parseTimestamp(map['termsOfServiceAcceptedAt']),
+      ageConfirmedAt: parseTimestamp(map['ageConfirmedAt']),
+      marketingConsentAcceptedAt: parseTimestamp(map['marketingConsentAcceptedAt']),
+      privacyPolicyVersion: parseOptionalNonEmptyString(map['privacyPolicyVersion']),
+      termsOfServiceVersion: parseOptionalNonEmptyString(map['termsOfServiceVersion']),
     );
   }
 }

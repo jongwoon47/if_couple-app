@@ -1,10 +1,8 @@
-import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
-import 'package:scrollable_positioned_list/scrollable_positioned_list.dart';
-
 import '../../l10n/app_localizations.dart';
 import '../../l10n/app_locale_scope.dart';
 import '../../models/app_user.dart';
@@ -39,96 +37,77 @@ class _ChatScreenState extends State<ChatScreen> {
   /// Firestore는 내림차순이라 [0]이 최신. 직전 빌드의 최신 ID (내 메시지 도착 시 맨 아래로)
   String? _prevNewestMessageId;
 
-  /// 이미지 로드 등으로 리스트 높이가 늦게 잡힐 때 재스크롤용
-  int _bottomEntryIndex = 0;
-
   /// 답장 대상 메시지 (입력창 위 미리보기용)
   ChatMessage? _replyTarget;
 
   /// 로컬 리액션 (messageId -> 이모지). 저장 안 함.
   final Map<String, String> _localReactions = <String, String>{};
 
-  /// 인덱스 기반 스크롤 (아주 오래된 메시지도 답장 시 이동 가능)
-  final ItemScrollController _itemScrollController = ItemScrollController();
-  /// messageId → 리스트 인덱스 (빌드 시 채움)
-  final Map<String, int> _messageIdToIndex = <String, int>{};
+  /// 채팅 리스트 맨 아래 (과거→최신 순이므로 maxScrollExtent)
+  final ScrollController _chatScrollController = ScrollController();
 
-  /// 맨 아래 항목(웹에서 jumpTo만으로 스크롤이 안 잡힐 때 ensureVisible 보조)
-  final GlobalKey _chatBottomAnchorKey = GlobalKey(debugLabel: 'chatBottom');
+  /// 답장 탭 시 해당 말풍선으로 스크롤 (이미 빌드된 행만)
+  final Map<String, GlobalKey> _bubbleKeys = <String, GlobalKey>{};
 
   void _scrollToRepliedMessage(String? messageId) {
     if (messageId == null || messageId.isEmpty) return;
-    final index = _messageIdToIndex[messageId];
-    if (index == null || !_itemScrollController.isAttached) return;
-    _itemScrollController.scrollTo(
-      index: index,
+    final key = _bubbleKeys[messageId];
+    final ctx = key?.currentContext;
+    if (ctx == null) return;
+    Scrollable.ensureVisible(
+      ctx,
       duration: const Duration(milliseconds: 400),
       curve: Curves.easeInOut,
       alignment: 0.3,
     );
   }
 
-  void _scrollBottomAnchorIntoView() {
+  /// 리스트가 아직 붙지 않았거나 항목 높이가 잡히기 전에는 maxScrollExtent가 짧게 나올 수 있어
+  /// 웹·iOS·Android 모두 지연·다음 프레임 재시도한다 (웹만 쓰면 모바일에서 맨 아래로 못 가는 경우가 있음).
+  void _scrollToBottomWithRetry({int attempt = 0}) {
     if (!mounted) return;
-    final ctx = _chatBottomAnchorKey.currentContext;
-    if (ctx == null) return;
-    try {
-      Scrollable.ensureVisible(
-        ctx,
-        alignment: 1.0,
-        duration: Duration.zero,
-        curve: Curves.linear,
-      );
-    } catch (_) {
-      // 레이아웃 전 등 — 무시
+    const maxAttempts = 50;
+    void doJump() {
+      if (!mounted || !_chatScrollController.hasClients) return;
+      try {
+        final pos = _chatScrollController.position;
+        _chatScrollController.jumpTo(pos.maxScrollExtent);
+      } catch (_) {
+        if (attempt < maxAttempts) {
+          Future<void>.delayed(const Duration(milliseconds: 50), () {
+            _scrollToBottomWithRetry(attempt: attempt + 1);
+          });
+        }
+      }
     }
-  }
 
-  /// 리스트가 아직 붙지 않았을 수 있어 여러 번 재시도 (웹/모바일 공통)
-  ///
-  /// [ScrollablePositionedList.scrollTo]는 목표 행이 아직 레이아웃에 없을 때
-  /// 화면 높이의 2배씩 끊어 가며 크게 스크롤하는 애니메이션을 쓴다.
-  /// 채팅 맨 아래는 [jumpTo]로 맞추고, 웹은 한 프레임에 반영이 안 되는 경우가 있어
-  /// [Scrollable.ensureVisible]로 하단 앵커를 추가로 맞춘다.
-  void _scrollToBottomWithRetry(int lastIndex, {int attempt = 0}) {
-    if (!mounted || lastIndex < 0) return;
-    final maxAttempts = kIsWeb ? 50 : 30;
-    if (!_itemScrollController.isAttached) {
+    if (!_chatScrollController.hasClients) {
       if (attempt < maxAttempts) {
         Future<void>.delayed(const Duration(milliseconds: 50), () {
-          _scrollToBottomWithRetry(lastIndex, attempt: attempt + 1);
+          _scrollToBottomWithRetry(attempt: attempt + 1);
         });
       }
       return;
     }
-    try {
-      _itemScrollController.jumpTo(
-        index: lastIndex,
-        alignment: 1.0,
-      );
-    } catch (_) {
-      if (attempt < maxAttempts) {
-        Future<void>.delayed(const Duration(milliseconds: 50), () {
-          _scrollToBottomWithRetry(lastIndex, attempt: attempt + 1);
-        });
-      }
-    }
-    void afterLayout() {
+    doJump();
+    // 다음 1~2프레임: 레이아웃 직후 extent 갱신
+    WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      _scrollBottomAnchorIntoView();
-      if (kIsWeb) {
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted) return;
-          _scrollBottomAnchorIntoView();
-        });
-        Future<void>.delayed(const Duration(milliseconds: 16), () {
-          if (!mounted) return;
-          _scrollBottomAnchorIntoView();
-        });
-      }
-    }
-
-    WidgetsBinding.instance.addPostFrameCallback((_) => afterLayout());
+      doJump();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        doJump();
+      });
+    });
+    // 이미지·폰트 등으로 높이가 늦게 잡힐 때
+    Future<void>.delayed(const Duration(milliseconds: 120), () {
+      if (!mounted) return;
+      doJump();
+    });
+    Future<void>.delayed(const Duration(milliseconds: 320), () {
+      if (!mounted) return;
+      doJump();
+    });
   }
 
   /// 스트림 지연·이미지 레이아웃 후에도 맨 아래 유지
@@ -136,8 +115,7 @@ class _ChatScreenState extends State<ChatScreen> {
     for (final ms in const [400, 1000, 2200]) {
       Future<void>.delayed(Duration(milliseconds: ms), () {
         if (!mounted) return;
-        _scrollToBottomWithRetry(_bottomEntryIndex);
-        _scrollBottomAnchorIntoView();
+        _scrollToBottomWithRetry();
       });
     }
   }
@@ -154,6 +132,7 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     ChatService.markChatAsRead(widget.appUser.userId);
     _controller.dispose();
+    _chatScrollController.dispose();
     super.dispose();
   }
 
@@ -482,7 +461,7 @@ class _ChatScreenState extends State<ChatScreen> {
 
     if (message.messageText.trim().isEmpty) return;
 
-    if (!TranslationService.isConfigured) {
+    if (!TranslationService.isPrimaryConfigured) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -501,6 +480,7 @@ class _ChatScreenState extends State<ChatScreen> {
         text: message.messageText,
         userId: widget.appUser.userId,
         systemPrompt: TranslationService.couplePrompt,
+        retranslate: false,
       );
       if (!mounted) return;
       setState(() {
@@ -595,12 +575,13 @@ class _ChatScreenState extends State<ChatScreen> {
                   onTap: () =>
                       Navigator.of(context).pop(_MessageAction.viewTranslation),
                 ),
-              ListTile(
-                leading: const Icon(Icons.refresh_rounded),
-                title: Text(l10n.retranslate),
-                onTap: () =>
-                    Navigator.of(context).pop(_MessageAction.retranslate),
-              ),
+              if (_effectiveTranslatedText(message) != null)
+                ListTile(
+                  leading: const Icon(Icons.refresh_rounded),
+                  title: Text(l10n.retranslate),
+                  onTap: () =>
+                      Navigator.of(context).pop(_MessageAction.retranslate),
+                ),
               ListTile(
                 leading: const Icon(Icons.copy_rounded),
                 title: Text(l10n.copyOriginal),
@@ -719,11 +700,11 @@ class _ChatScreenState extends State<ChatScreen> {
     final id = message.messageId;
     if (_translatingMessageIds.contains(id)) return;
 
-    if (!TranslationService.isConfigured) {
+    if (!TranslationService.isRetranslateConfigured) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(AppLocalizations.of(context)!.translateServerNotConfigured),
+          content: Text(AppLocalizations.of(context)!.retranslateServerNotConfigured),
         ),
       );
       return;
@@ -738,6 +719,7 @@ class _ChatScreenState extends State<ChatScreen> {
         text: message.messageText,
         userId: widget.appUser.userId,
         systemPrompt: TranslationService.couplePrompt,
+        retranslate: true,
       );
       if (!mounted) return;
       setState(() {
@@ -807,13 +789,14 @@ class _ChatScreenState extends State<ChatScreen> {
                     messages,
                     widget.appUser.userId,
                   );
-                  _messageIdToIndex.clear();
-                  for (var i = 0; i < entries.length; i++) {
-                    final e = entries[i];
+                  final messageIds = <String>{};
+                  for (final e in entries) {
                     if (e.message != null) {
-                      _messageIdToIndex[e.message!.messageId] = i;
+                      messageIds.add(e.message!.messageId);
                     }
                   }
+                  _bubbleKeys.removeWhere((id, _) => !messageIds.contains(id));
+
                   final effectiveTranslatedText = _effectiveTranslatedText;
                   final translatingIds = _translatingMessageIds;
 
@@ -825,23 +808,26 @@ class _ChatScreenState extends State<ChatScreen> {
                       newest.senderId == widget.appUser.userId;
                   _prevNewestMessageId = newestId;
 
-                  _bottomEntryIndex = entries.length - 1;
-
                   // 맨 아래: (1) 처음 입장 (2) 전송 직후 플래그 (3) 내 최신 메시지가 스트림에 반영된 뒤
                   final scrollToBottomNow = entries.isNotEmpty &&
                       (!_hasScrolledToBottomOnce ||
                           _forceScrollAfterSend ||
                           ownNewestArrived);
                   if (scrollToBottomNow) {
-                    final lastIndex = entries.length - 1;
                     final markFirstDone = !_hasScrolledToBottomOnce;
                     // 내 메시지가 스트림에 붙은 뒤에만 지연 재스크롤 (이미지 높이·빌드 타이밍)
                     final followUpAfterOwnMessage = ownNewestArrived;
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (!mounted) return;
-                      _scrollToBottomWithRetry(lastIndex);
+                      _scrollToBottomWithRetry();
+                      // jumpTo 직후 같은 프레임에서 setState 하면 리스트가 다시 그려지며
+                      // 스크롤이 맨 위로 튈 수 있음 → 스크롤 다음 프레임에만 갱신
                       if (markFirstDone) {
-                        setState(() => _hasScrolledToBottomOnce = true);
+                        WidgetsBinding.instance.addPostFrameCallback((_) {
+                          if (mounted) {
+                            setState(() => _hasScrolledToBottomOnce = true);
+                          }
+                        });
                       }
                       if (followUpAfterOwnMessage) {
                         _scheduleScrollToBottomFollowUps();
@@ -849,37 +835,29 @@ class _ChatScreenState extends State<ChatScreen> {
                     });
                   }
 
-                  return ScrollablePositionedList.builder(
-                    itemScrollController: _itemScrollController,
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    itemCount: entries.length,
-                    initialScrollIndex: entries.isEmpty ? 0 : entries.length - 1,
-                    initialAlignment: 1.0,
+                  return _ChatMessagesListView(
+                    key: ValueKey(widget.appUser.coupleId ?? 'chat'),
+                    scrollController: _chatScrollController,
+                    entries: entries,
                     itemBuilder: (context, index) {
                       final entry = entries[index];
-                      final Widget child;
                       if (entry.isDateSeparator) {
-                        child = _DateSeparator(date: entry.date!);
-                      } else {
-                        final msg = entry.message!;
-                        final mine = msg.senderId == widget.appUser.userId;
-                        child = _MessageBubble(
-                          message: msg,
-                          mine: mine,
-                          translatedText: effectiveTranslatedText(msg),
-                          isTranslating: translatingIds.contains(msg.messageId),
-                          reaction: _localReactions[msg.messageId],
-                          onLongPress: () => _openMessageActions(msg),
-                          onReplyTap: _scrollToRepliedMessage,
-                        );
+                        return _DateSeparator(date: entry.date!);
                       }
-                      if (index == entries.length - 1) {
-                        return KeyedSubtree(
-                          key: _chatBottomAnchorKey,
-                          child: child,
-                        );
-                      }
-                      return child;
+                      final msg = entry.message!;
+                      final mine = msg.senderId == widget.appUser.userId;
+                      final bubbleKey =
+                          _bubbleKeys.putIfAbsent(msg.messageId, GlobalKey.new);
+                      return _MessageBubble(
+                        key: bubbleKey,
+                        message: msg,
+                        mine: mine,
+                        translatedText: effectiveTranslatedText(msg),
+                        isTranslating: translatingIds.contains(msg.messageId),
+                        reaction: _localReactions[msg.messageId],
+                        onLongPress: () => _openMessageActions(msg),
+                        onReplyTap: _scrollToRepliedMessage,
+                      );
                     },
                   );
                 },
@@ -984,6 +962,36 @@ class _ChatScreenState extends State<ChatScreen> {
 }
 
 /// 리스트 항목: 날짜 구분선 또는 메시지
+/// [StreamBuilder]가 스트림마다 자식을 새로 그려도 [ScrollController]는 부모에 있고,
+/// [ListView]만 이 State 아래에 두어 스크롤 위치가 유지되도록 한다.
+class _ChatMessagesListView extends StatefulWidget {
+  const _ChatMessagesListView({
+    super.key,
+    required this.scrollController,
+    required this.entries,
+    required this.itemBuilder,
+  });
+
+  final ScrollController scrollController;
+  final List<_ChatListEntry> entries;
+  final Widget Function(BuildContext context, int index) itemBuilder;
+
+  @override
+  State<_ChatMessagesListView> createState() => _ChatMessagesListViewState();
+}
+
+class _ChatMessagesListViewState extends State<_ChatMessagesListView> {
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      controller: widget.scrollController,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      itemCount: widget.entries.length,
+      itemBuilder: widget.itemBuilder,
+    );
+  }
+}
+
 class _ChatListEntry {
   const _ChatListEntry._({this.date, this.message})
       : assert(date != null || message != null);
@@ -1185,6 +1193,7 @@ class _ChatNetworkImageFittedState extends State<_ChatNetworkImageFitted> {
 
 class _MessageBubble extends StatelessWidget {
   const _MessageBubble({
+    super.key,
     required this.message,
     required this.mine,
     required this.translatedText,

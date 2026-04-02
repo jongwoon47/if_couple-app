@@ -335,7 +335,11 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get translateServerNotConfigured =>
-      '翻訳サーバーが設定されていません。実行時に TRANSLATE_API_URL を指定してください。';
+      '初回翻訳サーバーがありません。TRANSLATE_API_URL に自宅の Gemma 用 URL を設定してください。';
+
+  @override
+  String get retranslateServerNotConfigured =>
+      '再翻訳サーバーがありません。TRANSLATE_RETRANSLATE_API_URL に Gemini（クラウド）の URL を設定してください。';
 
   @override
   String get translateSheetTitle => '翻訳を見る';
@@ -774,6 +778,36 @@ class AppLocalizationsJa extends AppLocalizations {
   String get termsOfService => '利用規約';
 
   @override
+  String get privacyConsentTitle => '規約への同意';
+
+  @override
+  String get privacyConsentIntro => 'サービスを利用するには、以下に同意してください。';
+
+  @override
+  String get privacyConsentAgreeAll => 'すべて同意';
+
+  @override
+  String get privacyConsentAgreePrivacy => 'プライバシーポリシーに同意します（必須）';
+
+  @override
+  String get privacyConsentAgreeTerms => '利用規約に同意します（必須）';
+
+  @override
+  String get privacyConsentAgreeAge => '14歳以上であることを確認しました（必須）';
+
+  @override
+  String get privacyConsentAgreeMarketing => 'マーケティング情報の受信に同意します（任意）';
+
+  @override
+  String get privacyConsentViewDocument => '全文を見る';
+
+  @override
+  String get privacyConsentContinue => '同意して続ける';
+
+  @override
+  String get privacyConsentSaveError => '保存できませんでした。しばらくしてからもう一度お試しください。';
+
+  @override
   String get openSourceLicenses => 'オープンソースライセンス';
 
   @override
@@ -810,16 +844,22 @@ class AppLocalizationsJa extends AppLocalizations {
   String get notificationMessageSubtitle => 'メッセージを受け取ったら通知します。';
 
   @override
+  String get notificationAlbum => 'アルバム通知';
+
+  @override
+  String get notificationAlbumSubtitle => 'パートナーがアルバムに写真を追加したら通知します。';
+
+  @override
   String get notificationAnniversary => '記念日通知';
 
   @override
-  String get notificationAnniversarySubtitle => '記念日の通知を受け取ります。';
+  String get notificationAnniversarySubtitle => 'カップル開始日（毎年同じ日）に、設定した時刻で通知します。';
 
   @override
   String get notificationSchedule => '予定通知';
 
   @override
-  String get notificationScheduleSubtitle => '予定当日の朝に通知します。';
+  String get notificationScheduleSubtitle => 'カレンダーに予定がある日、下で設定した時刻に通知します。';
 
   @override
   String get notificationTimeTitle => '通知の時間';

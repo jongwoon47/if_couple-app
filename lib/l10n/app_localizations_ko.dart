@@ -335,7 +335,11 @@ class AppLocalizationsKo extends AppLocalizations {
 
   @override
   String get translateServerNotConfigured =>
-      '번역 서버가 설정되지 않았어요. 실행 시 TRANSLATE_API_URL을 지정해 주세요.';
+      '첫 번역(번역 보기) 서버가 없어요. TRANSLATE_API_URL에 집 PC Gemma 주소를 넣어 주세요.';
+
+  @override
+  String get retranslateServerNotConfigured =>
+      '재번역 서버가 없어요. TRANSLATE_RETRANSLATE_API_URL에 Gemini(클라우드) 주소를 넣어 주세요.';
 
   @override
   String get translateSheetTitle => '번역 보기';
@@ -775,6 +779,36 @@ class AppLocalizationsKo extends AppLocalizations {
   String get termsOfService => '이용약관';
 
   @override
+  String get privacyConsentTitle => '약관 동의';
+
+  @override
+  String get privacyConsentIntro => '서비스를 이용하려면 아래에 동의해 주세요.';
+
+  @override
+  String get privacyConsentAgreeAll => '전체 동의';
+
+  @override
+  String get privacyConsentAgreePrivacy => '개인정보처리방침에 동의합니다 (필수)';
+
+  @override
+  String get privacyConsentAgreeTerms => '이용약관에 동의합니다 (필수)';
+
+  @override
+  String get privacyConsentAgreeAge => '만 14세 이상입니다 (필수)';
+
+  @override
+  String get privacyConsentAgreeMarketing => '마케팅 정보 수신에 동의합니다 (선택)';
+
+  @override
+  String get privacyConsentViewDocument => '전문 보기';
+
+  @override
+  String get privacyConsentContinue => '동의하고 계속하기';
+
+  @override
+  String get privacyConsentSaveError => '저장하지 못했어요. 잠시 후 다시 시도해 주세요.';
+
+  @override
   String get openSourceLicenses => '오픈소스 라이선스';
 
   @override
@@ -811,16 +845,24 @@ class AppLocalizationsKo extends AppLocalizations {
   String get notificationMessageSubtitle => '메시지를 받으면 알림을 받습니다.';
 
   @override
+  String get notificationAlbum => '앨범 알림';
+
+  @override
+  String get notificationAlbumSubtitle => '상대가 앨범에 사진을 올리면 알림을 받습니다.';
+
+  @override
   String get notificationAnniversary => '기념일 알림';
 
   @override
-  String get notificationAnniversarySubtitle => '기념일 알림을 받습니다.';
+  String get notificationAnniversarySubtitle =>
+      '커플 시작일(매년 같은 날)에 설정한 시각에 알림을 받습니다.';
 
   @override
   String get notificationSchedule => '일정 알림';
 
   @override
-  String get notificationScheduleSubtitle => '일정 당일 아침에 알림을 받습니다.';
+  String get notificationScheduleSubtitle =>
+      '캘린더 일정이 있는 날, 아래에서 설정한 시각에 알림을 받습니다.';
 
   @override
   String get notificationTimeTitle => '알림 시간';
