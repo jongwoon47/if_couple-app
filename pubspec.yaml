@@ -1,7 +1,7 @@
 name: if_app
 description: Couple communication and relationship management app.
 publish_to: "none"
-version: 0.1.0+1
+version: 0.1.0+2
 
 environment:
   sdk: ">=3.3.0 <4.0.0"
@@ -21,7 +21,6 @@ dependencies:
   http: ^1.2.2
   url_launcher: ^6.3.1
   image_picker: ^1.0.7
-  scrollable_positioned_list: ^0.3.4
   flutter_svg: ^2.0.10+1
   google_maps_flutter: ^2.15.0
   geocoding: ^3.0.0
