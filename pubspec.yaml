@@ -30,6 +30,7 @@ dependencies:
   kakao_flutter_sdk: ^1.10.0
   flutter_line_sdk: ^2.7.0
   firebase_messaging: ^15.2.10
+  scrollable_positioned_list: ^0.3.8
 
 dev_dependencies:
   flutter_test:
