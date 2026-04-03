@@ -28,6 +28,16 @@ class AppConfig {
         'Korean↔Japanese couple chat. Korean names and vocatives (…아/…야): use katakana from Korean sounds (준혁→ジュンヒョク); never replace with unrelated Japanese names like ヒカル. Output only the translation.',
   );
 
+  /// Firebase Auth용 Google Sign-In `serverClientId`(웹 OAuth 클라이언트 ID).
+  /// iOS에서 `idToken` 발급에 필요. `android/app/google-services.json`의
+  /// `client_type: 3` 클라이언트와 동일해야 합니다.
+  /// `--dart-define=GOOGLE_SERVER_CLIENT_ID=...` 로 덮어쓰기 가능.
+  static const String googleServerClientId = String.fromEnvironment(
+    'GOOGLE_SERVER_CLIENT_ID',
+    defaultValue:
+        '516031766053-ci1e0cpigi75igfa32b1vfgu2fjkdl40.apps.googleusercontent.com',
+  );
+
   /// Google Maps Geocoding(역지오코딩)용. 웹·동일 키로 빌드 시:
   /// `flutter run --dart-define=GOOGLE_MAPS_API_KEY=...`
   static const String googleMapsApiKey =
