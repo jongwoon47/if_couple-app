@@ -10,6 +10,8 @@ import 'app_firebase_storage.dart';
 
 class AlbumService {
   static const int maxPhotosPerAlbumFree = 30;
+  /// Storage 동시 업로드 개수 (순차보다 빠르고, 한꺼번에 30장보다 메모리 부담 적음)
+  static const int _albumUploadParallelism = 6;
   static final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   static FirebaseStorage get _storage => getAppFirebaseStorage();
 
@@ -117,20 +119,28 @@ class AlbumService {
     required List<List<int>> bytesList,
     required List<String> fileNames,
   }) async {
-    // @return 첫 업로드된 photoId (대표 설정용)
+    // @return 첫 업로드된 photoId (대표 설정용) — 선택 순서의 첫 장
     if (bytesList.isEmpty) return '';
 
-    String? firstPhotoId;
-    for (var i = 0; i < bytesList.length; i++) {
+    final n = bytesList.length;
+    // 병렬 업로드해도 대표·순서는 사용자가 고른 순서와 동일하게 유지
+    final photoIds =
+        List<String>.generate(n, (_) => _photoRef(coupleId, albumId).doc().id);
+    final firstPhotoId = photoIds.first;
+
+    Future<
+        ({
+          String photoId,
+          String storagePath,
+          String url,
+        })> uploadOne(int i) async {
       final bytes = bytesList[i];
       final fileName = fileNames[i];
       final ext = _extractExtension(fileName);
-
-      final photoId = _photoRef(coupleId, albumId).doc().id;
+      final photoId = photoIds[i];
       final storagePath =
           'couples/$coupleId/albums/$albumId/photos/$photoId.$ext';
       final ref = _storage.ref().child(storagePath);
-
       final contentType = _contentTypeForExt(ext);
       final data = bytes is Uint8List ? bytes : Uint8List.fromList(bytes);
       await _uploadPutData(
@@ -144,18 +154,37 @@ class AlbumService {
           AppLocaleController.l10n.albumDownloadUrlTimeout,
         ),
       );
+      return (
+        photoId: photoId,
+        storagePath: storagePath,
+        url: url,
+      );
+    }
 
-      await _photoRef(coupleId, albumId).doc(photoId).set({
-        'photoId': photoId,
+    final results = <({String photoId, String storagePath, String url})>[];
+    for (var start = 0; start < n; start += _albumUploadParallelism) {
+      final end = start + _albumUploadParallelism < n
+          ? start + _albumUploadParallelism
+          : n;
+      final chunk = await Future.wait(
+        List.generate(end - start, (j) => uploadOne(start + j)),
+      );
+      results.addAll(chunk);
+    }
+
+    final batch = _firestore.batch();
+    final coll = _photoRef(coupleId, albumId);
+    for (final r in results) {
+      batch.set(coll.doc(r.photoId), {
+        'photoId': r.photoId,
         'albumId': albumId,
         'uploadedBy': uploadedByUserId.trim(),
-        'storagePath': storagePath,
-        'imageUrl': url,
+        'storagePath': r.storagePath,
+        'imageUrl': r.url,
         'createdAt': FieldValue.serverTimestamp(),
       });
-
-      firstPhotoId ??= photoId;
     }
+    await batch.commit();
 
     // 업로드 후 photoCount 갱신
     final count = await photoCount(coupleId: coupleId, albumId: albumId);
@@ -167,32 +196,23 @@ class AlbumService {
     // 대표(썸네일) 규칙:
     // - 앨범에 대표가 아직 없으면 → 이번 업로드 배치의 첫 장을 자동 대표로 설정
     // - 이미 대표가 있으면 → 건드리지 않음 (전체화면에서만 수동 변경)
-    final fid = firstPhotoId;
-    if (fid != null && fid.isNotEmpty) {
-      final albumSnap = await _albumRef(coupleId).doc(albumId).get();
-      final a = albumSnap.data();
-      final cid = (a?['coverPhotoId'] as String?)?.trim();
-      final curl = (a?['coverPhotoUrl'] as String?)?.trim();
-      final hasCover =
-          cid != null && cid.isNotEmpty && curl != null && curl.isNotEmpty;
-      if (!hasCover) {
-        final url = await photoUrl(
-          coupleId: coupleId,
-          albumId: albumId,
-          photoId: fid,
-        );
-        if (url != null && url.isNotEmpty) {
-          await setCoverPhoto(
-            coupleId: coupleId,
-            albumId: albumId,
-            coverPhotoId: fid,
-            coverPhotoUrl: url,
-          );
-        }
-      }
+    final albumSnap = await _albumRef(coupleId).doc(albumId).get();
+    final a = albumSnap.data();
+    final cid = (a?['coverPhotoId'] as String?)?.trim();
+    final curl = (a?['coverPhotoUrl'] as String?)?.trim();
+    final hasCover =
+        cid != null && cid.isNotEmpty && curl != null && curl.isNotEmpty;
+    if (!hasCover) {
+      final first = results.first;
+      await setCoverPhoto(
+        coupleId: coupleId,
+        albumId: albumId,
+        coverPhotoId: first.photoId,
+        coverPhotoUrl: first.url,
+      );
     }
 
-    return firstPhotoId ?? '';
+    return firstPhotoId;
   }
 
   static Future<void> deletePhoto({

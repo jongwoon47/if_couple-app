@@ -63,7 +63,7 @@ function pickTranslationFromGeminiOutput(raw, sourceText) {
     .split(/\n/)
     .map((s) => s.trim())
     .filter(Boolean);
-  if (lines.length <= 1) return translated;
+  if (lines.length === 0) return "";
 
   const hasHangul = (s) => /[\uAC00-\uD7AF]/.test(s);
   const hasKanaOrKanji = (s) =>
@@ -75,24 +75,45 @@ function pickTranslationFromGeminiOutput(raw, sourceText) {
         /^(translation|訳|日本語|韓国語|한국어|일본어|原文|번역)\s*[:：]\s*/i,
         "",
       )
+      .replace(/^(以下|下記)[はが]?[、,]?\s*/u, "")
       .trim();
+
+  const sourceLooksJapanese =
+    hasKanaOrKanji(sourceNorm) && !hasHangul(sourceNorm);
+  const sourceLooksKorean =
+    hasHangul(sourceNorm) && !hasKanaOrKanji(sourceNorm);
 
   const cleaned = lines.map(stripLabel).filter(Boolean);
   const candidates = cleaned.filter((l) => l !== sourceNorm);
   const pool = candidates.length > 0 ? candidates : cleaned;
 
+  const firstLine = stripLabel(translated);
+  if (lines.length <= 1) {
+    if (firstLine === sourceNorm) return "";
+    if (sourceLooksJapanese && !hasHangul(firstLine)) return "";
+    if (sourceLooksKorean && !hasKanaOrKanji(firstLine) && firstLine.length > 1) {
+      if (!/^www+$/i.test(firstLine.trim())) return "";
+    }
+    return firstLine;
+  }
+
   if (hasHangul(sourceNorm)) {
     // 한국어 → 일본어: 일본어/한자가 있고 한글이 없는 줄 우선
     const jp = pool.find((l) => hasKanaOrKanji(l) && !hasHangul(l));
     if (jp) return jp;
+    const www = pool.find((l) => /^www+$/i.test(l.trim()));
+    if (www) return www;
   } else {
     // 일본어 → 한국어: 한글이 있는 줄 우선
     const ko = pool.find((l) => hasHangul(l));
     if (ko) return ko;
+    return "";
   }
 
   // Echo 제거 후 첫 줄(번역이 보통 먼저 옴). 마지막 줄은 잡음에 취약함.
-  return pool[0] ?? translated;
+  const fallback = pool[0] ?? translated;
+  if (sourceLooksJapanese && !hasHangul(fallback)) return "";
+  return fallback;
 }
 
 /**

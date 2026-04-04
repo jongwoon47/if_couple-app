@@ -8,6 +8,7 @@ import '../../l10n/app_locale_scope.dart';
 import '../../models/app_user.dart';
 import '../../models/chat_message.dart';
 import '../../services/chat_service.dart';
+import '../../services/image_upload_prep.dart';
 import '../../services/firebase_error_messages.dart';
 import '../../services/translation_service.dart';
 import '../widgets/fullscreen_network_image_viewer.dart';
@@ -23,6 +24,7 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _controller = TextEditingController();
+  final FocusNode _messageFocusNode = FocusNode();
   final Map<String, String> _manualTranslations = <String, String>{};
   final Set<String> _translatingMessageIds = <String>{};
 
@@ -132,8 +134,18 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     ChatService.markChatAsRead(widget.appUser.userId);
     _controller.dispose();
+    _messageFocusNode.dispose();
     _chatScrollController.dispose();
     super.dispose();
+  }
+
+  void _refocusMessageField() {
+    if (!mounted) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        FocusScope.of(context).requestFocus(_messageFocusNode);
+      }
+    });
   }
 
   /// 새 메시지가 도착하면 자동으로 읽음 처리
@@ -227,9 +239,9 @@ class _ChatScreenState extends State<ChatScreen> {
       final picker = ImagePicker();
       final xFile = await picker.pickImage(
         source: ImageSource.camera,
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 78,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 72,
       );
       if (!mounted) return;
       if (xFile == null) return;
@@ -253,9 +265,9 @@ class _ChatScreenState extends State<ChatScreen> {
       final picker = ImagePicker();
       final list = await picker.pickMultiImage(
         limit: 5,
-        maxWidth: 1920,
-        maxHeight: 1920,
-        imageQuality: 78,
+        maxWidth: 1600,
+        maxHeight: 1600,
+        imageQuality: 72,
       );
       if (!mounted) return;
       if (list.isEmpty) return;
@@ -287,15 +299,26 @@ class _ChatScreenState extends State<ChatScreen> {
     if (bytesList.isEmpty) return;
     setState(() => _sending = true);
     try {
+      final prepared = await Future.wait(
+        List.generate(
+          bytesList.length,
+          (i) => prepareImageForUpload(
+            bytesList[i],
+            fileNames[i],
+            maxSide: 1600,
+            quality: 72,
+          ),
+        ),
+      );
       final uploadTasks = <Future<String>>[];
-      for (var i = 0; i < bytesList.length; i++) {
-        final ext = _imageExtensionFromPath(fileNames[i]);
+      for (var i = 0; i < prepared.length; i++) {
+        final p = prepared[i];
         uploadTasks.add(
           ChatService.uploadChatImage(
             coupleId: widget.appUser.coupleId!,
             senderId: widget.appUser.userId,
-            bytes: bytesList[i],
-            fileExtension: ext,
+            bytes: p.bytes,
+            fileExtension: p.fileExtension,
           ),
         );
       }
@@ -337,17 +360,9 @@ class _ChatScreenState extends State<ChatScreen> {
     } finally {
       if (mounted) {
         setState(() => _sending = false);
+        _refocusMessageField();
       }
     }
-  }
-
-  String _imageExtensionFromPath(String path) {
-    final parts = path.split('.');
-    final ext = parts.length > 1 ? parts.last.toLowerCase() : '';
-    if (ext == 'png' || ext == 'gif' || ext == 'webp' || ext == 'jpeg') {
-      return ext;
-    }
-    return 'jpg';
   }
 
   Future<void> _send() async {
@@ -382,6 +397,7 @@ class _ChatScreenState extends State<ChatScreen> {
     } finally {
       if (mounted) {
         setState(() => _sending = false);
+        _refocusMessageField();
       }
     }
   }
@@ -803,20 +819,25 @@ class _ChatScreenState extends State<ChatScreen> {
                   // messageStream: 내림차순 → 최신이 [0]
                   final newest = messages.first;
                   final newestId = newest.messageId;
-                  final ownNewestArrived = _prevNewestMessageId != null &&
-                      newestId != _prevNewestMessageId &&
+                  final newestChanged = _prevNewestMessageId != null &&
+                      newestId != _prevNewestMessageId;
+                  final ownNewestArrived = newestChanged &&
                       newest.senderId == widget.appUser.userId;
+                  final partnerNewestArrived = newestChanged &&
+                      newest.senderId != widget.appUser.userId;
                   _prevNewestMessageId = newestId;
 
-                  // 맨 아래: (1) 처음 입장 (2) 전송 직후 플래그 (3) 내 최신 메시지가 스트림에 반영된 뒤
+                  // 맨 아래: (1) 처음 입장 (2) 전송 직후 플래그 (3) 내/상대 최신 메시지가 스트림에 반영된 뒤
                   final scrollToBottomNow = entries.isNotEmpty &&
                       (!_hasScrolledToBottomOnce ||
                           _forceScrollAfterSend ||
-                          ownNewestArrived);
+                          ownNewestArrived ||
+                          partnerNewestArrived);
                   if (scrollToBottomNow) {
                     final markFirstDone = !_hasScrolledToBottomOnce;
-                    // 내 메시지가 스트림에 붙은 뒤에만 지연 재스크롤 (이미지 높이·빌드 타이밍)
-                    final followUpAfterOwnMessage = ownNewestArrived;
+                    // 새 메시지(내 것·상대 것) 반영 후 레이아웃·이미지 로드에 맞춰 재스크롤
+                    final followUpAfterNewMessage =
+                        ownNewestArrived || partnerNewestArrived;
                     WidgetsBinding.instance.addPostFrameCallback((_) {
                       if (!mounted) return;
                       _scrollToBottomWithRetry();
@@ -829,7 +850,7 @@ class _ChatScreenState extends State<ChatScreen> {
                           }
                         });
                       }
-                      if (followUpAfterOwnMessage) {
+                      if (followUpAfterNewMessage) {
                         _scheduleScrollToBottomFollowUps();
                       }
                     });
@@ -927,8 +948,10 @@ class _ChatScreenState extends State<ChatScreen> {
                       Expanded(
                         child: TextField(
                           controller: _controller,
-                          enabled: !_sending,
+                          focusNode: _messageFocusNode,
+                          readOnly: _sending,
                           textInputAction: TextInputAction.send,
+                          onTap: () => _scrollToBottomWithRetry(),
                           onSubmitted: (_) => _send(),
                           decoration: InputDecoration(
                             hintText: l10n.messageHint,
@@ -1200,7 +1223,6 @@ class _MessageBubble extends StatelessWidget {
     required this.isTranslating,
     this.reaction,
     required this.onLongPress,
-    this.onTap,
     this.onReplyTap,
   });
 
@@ -1210,7 +1232,6 @@ class _MessageBubble extends StatelessWidget {
   final bool isTranslating;
   final String? reaction;
   final VoidCallback onLongPress;
-  final VoidCallback? onTap;
   final void Function(String? messageId)? onReplyTap;
 
   static const double _kChatImageMaxWidth = 280;
@@ -1266,7 +1287,6 @@ class _MessageBubble extends StatelessWidget {
         alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
         child: GestureDetector(
           onLongPress: onLongPress,
-          onTap: onTap,
           child: Container(
             margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
             constraints: const BoxConstraints(maxWidth: _kChatImageMaxWidth),
@@ -1288,7 +1308,6 @@ class _MessageBubble extends StatelessWidget {
       alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
       child: GestureDetector(
         onLongPress: onLongPress,
-        onTap: onTap,
         child: Container(
           margin: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),

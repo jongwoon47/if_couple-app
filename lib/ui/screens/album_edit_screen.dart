@@ -6,6 +6,7 @@ import '../../l10n/app_localizations.dart';
 import '../../models/app_user.dart';
 import '../../models/album_models.dart';
 import '../../services/album_service.dart';
+import '../../services/image_upload_prep.dart';
 import '../../services/firebase_error_messages.dart';
 
 class AlbumEditScreen extends StatefulWidget {
@@ -68,7 +69,9 @@ class _AlbumEditScreenState extends State<AlbumEditScreen> {
     try {
       final files = await _picker.pickMultiImage(
         limit: remaining,
-        imageQuality: 85,
+        maxWidth: 2048,
+        maxHeight: 2048,
+        imageQuality: 78,
       );
       if (!mounted) return;
       if (files.isEmpty) return;
@@ -81,9 +84,9 @@ class _AlbumEditScreenState extends State<AlbumEditScreen> {
         try {
           final one = await _picker.pickImage(
             source: ImageSource.gallery,
-            imageQuality: 85,
-            maxWidth: 4096,
-            maxHeight: 4096,
+            imageQuality: 78,
+            maxWidth: 2048,
+            maxHeight: 2048,
           );
           if (!mounted) return;
           if (one != null) {
@@ -152,20 +155,33 @@ class _AlbumEditScreenState extends State<AlbumEditScreen> {
       }
 
       if (_pickedImages.isNotEmpty) {
-        final bytesList = <List<int>>[];
+        final rawBytes = <List<int>>[];
         final fileNames = <String>[];
         for (final x in _pickedImages) {
-          final b = await x.readAsBytes();
-          bytesList.add(b);
+          rawBytes.add(await x.readAsBytes());
           fileNames.add(x.name);
         }
-
+        final prepared = await Future.wait(
+          List.generate(
+            rawBytes.length,
+            (i) => prepareImageForUpload(
+              rawBytes[i],
+              fileNames[i],
+              maxSide: 2048,
+              quality: 78,
+            ),
+          ),
+        );
+        final bytesList = prepared.map((p) => p.bytes).toList();
         await AlbumService.uploadPhotos(
           coupleId: coupleId,
           albumId: album.albumId,
           uploadedByUserId: widget.appUser.userId,
           bytesList: bytesList,
-          fileNames: fileNames,
+          fileNames: List.generate(
+            prepared.length,
+            (i) => 'photo_$i.${prepared[i].fileExtension}',
+          ),
         );
         // 대표(썸네일) 자동 설정은 AlbumService.uploadPhotos 안에서 처리
       }
