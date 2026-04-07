@@ -422,6 +422,12 @@ abstract class AppLocalizations {
   /// **'구글로 로그인'**
   String get loginGoogle;
 
+  /// No description provided for @loginApple.
+  ///
+  /// In ko, this message translates to:
+  /// **'Apple로 로그인'**
+  String get loginApple;
+
   /// No description provided for @connectTitle.
   ///
   /// In ko, this message translates to:

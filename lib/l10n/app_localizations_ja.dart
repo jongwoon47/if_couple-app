@@ -175,6 +175,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get loginGoogle => 'Googleでログイン';
 
   @override
+  String get loginApple => 'Appleでログイン';
+
+  @override
   String get connectTitle => 'パートナーと連携しましょう';
 
   @override

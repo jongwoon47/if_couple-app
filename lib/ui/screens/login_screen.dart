@@ -1,6 +1,7 @@
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show TargetPlatform, defaultTargetPlatform, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 import '../../l10n/app_localizations.dart';
 import '../../l10n/app_locale_scope.dart';
 import '../../models/login_provider.dart';
@@ -30,6 +31,9 @@ class _LoginScreenState extends State<LoginScreen> {
 
     try {
       switch (provider) {
+        case LoginProvider.apple:
+          await AuthService.signInWithApple();
+          break;
         case LoginProvider.google:
           await AuthService.signInWithGoogle();
           break;
@@ -170,6 +174,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       const Spacer(),
                       if (!kIsWeb) ...[
+                        if (defaultTargetPlatform == TargetPlatform.iOS) ...[
+                          _AppleLoginButton(
+                            label: l10n.loginApple,
+                            loading: _loadingProvider == LoginProvider.apple,
+                            onPressed: _loadingProvider == null
+                                ? () => _login(LoginProvider.apple)
+                                : null,
+                          ),
+                          const SizedBox(height: 10),
+                        ],
                         _KakaoLoginImageButton(
                           loading: _loadingProvider == LoginProvider.kakao,
                           onPressed: _loadingProvider == null
@@ -376,6 +390,52 @@ class _GoogleLoginButton extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _AppleLoginButton extends StatelessWidget {
+  const _AppleLoginButton({
+    required this.label,
+    required this.loading,
+    required this.onPressed,
+  });
+
+  final String label;
+  final bool loading;
+  final VoidCallback? onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final busy = loading || onPressed == null;
+    return AbsorbPointer(
+      absorbing: busy,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Opacity(
+            opacity: busy ? 0.55 : 1,
+            child: SignInWithAppleButton(
+              text: label,
+              height: 52,
+              style: SignInWithAppleButtonStyle.black,
+              borderRadius: BorderRadius.circular(4),
+              onPressed: () {
+                if (onPressed != null) onPressed!();
+              },
+            ),
+          ),
+          if (loading)
+            const SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+        ],
       ),
     );
   }

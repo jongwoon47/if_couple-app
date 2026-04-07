@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import 'package:sign_in_with_apple/sign_in_with_apple.dart';
 
 import 'auth_api_service.dart';
 import 'auth_mobile_oauth.dart' if (dart.library.html) 'auth_mobile_oauth_stub.dart'
@@ -40,6 +41,24 @@ class AuthService {
       userCredential = await _auth.signInWithCredential(credential);
     }
 
+    await _createUserDocumentIfNeeded(userCredential.user);
+    return userCredential;
+  }
+
+  static Future<UserCredential> signInWithApple() async {
+    if (kIsWeb) {
+      throw UnsupportedError('Apple login is only supported on mobile apps.');
+    }
+
+    final appleCredential = await SignInWithApple.getAppleIDCredential(
+      scopes: [AppleIDAuthorizationScopes.email, AppleIDAuthorizationScopes.fullName],
+    );
+
+    final oauthCredential = OAuthProvider('apple.com').credential(
+      idToken: appleCredential.identityToken,
+      accessToken: appleCredential.authorizationCode,
+    );
+    final userCredential = await _auth.signInWithCredential(oauthCredential);
     await _createUserDocumentIfNeeded(userCredential.user);
     return userCredential;
   }

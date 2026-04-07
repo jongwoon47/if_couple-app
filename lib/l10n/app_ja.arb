@@ -54,6 +54,7 @@
   "loginLine": "LINEでログイン",
   "loginLineShort": "LINE",
   "loginGoogle": "Googleでログイン",
+  "loginApple": "Appleでログイン",
   "connectTitle": "パートナーと連携しましょう",
   "connectSubtitle": "招待コードを入力するか、作成して連携できます。",
   "connectButton": "連携する",

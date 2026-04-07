@@ -175,6 +175,9 @@ class AppLocalizationsKo extends AppLocalizations {
   String get loginGoogle => '구글로 로그인';
 
   @override
+  String get loginApple => 'Apple로 로그인';
+
+  @override
   String get connectTitle => '연인과 연결하세요';
 
   @override
