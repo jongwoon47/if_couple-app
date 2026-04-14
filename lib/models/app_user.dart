@@ -62,10 +62,8 @@ class AppUser {
   final String? termsOfServiceVersion;
 
   bool get isProfileCompleted {
-    // 프로필 완료 조건: 닉네임, 생일, 언어만 필수
-    return nickname.trim().isNotEmpty &&
-        birthday != null &&
-        language.trim().isNotEmpty;
+    // 프로필 완료 조건: 닉네임, 언어만 필수 (생일은 선택 입력)
+    return nickname.trim().isNotEmpty && language.trim().isNotEmpty;
   }
 
   Map<String, dynamic> toMap() {

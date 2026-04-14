@@ -30,6 +30,12 @@
 	<false/>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>지도에서 장소를 보여 주고, 주변 검색·위치 표시 기능을 제공하기 위해 위치 접근이 필요합니다.</string>
+	<key>NSCameraUsageDescription</key>
+	<string>대화/앨범에 사진을 촬영해 업로드하려면 카메라 접근 권한이 필요합니다.</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>대화/앨범에 사진을 업로드하려면 사진 보관함 접근 권한이 필요합니다.</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>촬영한 사진을 저장하거나 공유하려면 사진 보관함 추가 권한이 필요합니다.</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
 	<key>UIApplicationSceneManifest</key>

@@ -107,13 +107,13 @@ class UserService {
   static Future<void> updateProfile({
     required String userId,
     required String nickname,
-    required DateTime birthday,
+    DateTime? birthday,
     required String language,
     String? gender,
   }) async {
     await _users.doc(userId).set({
       'nickname': nickname.trim(),
-      'birthday': Timestamp.fromDate(birthday),
+      'birthday': birthday == null ? null : Timestamp.fromDate(birthday),
       'language': language.trim(),
       'gender': gender,
     }, SetOptions(merge: true));

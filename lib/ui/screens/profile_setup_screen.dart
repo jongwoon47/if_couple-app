@@ -52,22 +52,12 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
         final nickname = _nicknameController.text.trim();
         return nickname.length >= 2 && nickname.length <= 10;
       case 1:
-        return _birthday != null && _isAgeAtLeast14(_birthday!);
+        return true; // 생년월일은 선택 입력
       case 2:
         return _language != null && _language!.isNotEmpty;
       default:
         return false;
     }
-  }
-
-  bool _isAgeAtLeast14(DateTime birthday) {
-    final now = DateTime.now();
-    var age = now.year - birthday.year;
-    final birthdayThisYear = DateTime(now.year, birthday.month, birthday.day);
-    if (now.isBefore(birthdayThisYear)) {
-      age -= 1;
-    }
-    return age >= 14;
   }
 
   String _stepHintText(AppLocalizations l10n) {
@@ -88,10 +78,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       case 0:
         return l10n.psNicknameError;
       case 1:
-        if (_birthday == null) {
-          return l10n.psBirthdaySelect;
-        }
-        return l10n.psAgeError;
+        return '';
       case 2:
         return l10n.psLanguageSelect;
       default:
@@ -147,7 +134,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
 
   Future<void> _submit() async {
     final l10n = AppLocalizations.of(context)!;
-    if (_birthday == null || _language == null) {
+    if (_language == null) {
       setState(() {
         _error = l10n.psConfirmError;
       });
@@ -163,7 +150,7 @@ class _ProfileSetupScreenState extends State<ProfileSetupScreen> {
       await UserService.updateProfile(
         userId: widget.firebaseUser.uid,
         nickname: _nicknameController.text.trim(),
-        birthday: _birthday!,
+        birthday: _birthday,
         language: _language!,
       );
     } catch (e) {
